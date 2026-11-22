@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const Session = @import("../Session.zig");
-const glsl = @import("glsl.zig");
+const emit = @import("emit.zig");
 const testing = std.testing;
 
 const File = struct { []const u8, []const u8 };
@@ -19,10 +19,10 @@ fn session(files: []const File) !Session {
     return s;
 }
 
-fn expectStage(files: []const File, program: []const u8, stage: @import("../ir/Ir.zig").Stage, dialect: glsl.Dialect, want: []const u8) !void {
+fn expectStage(files: []const File, program: []const u8, stage: @import("../ir/Ir.zig").Stage, dialect: emit.Dialect, want: []const u8) !void {
     var s = try session(files);
     defer s.deinit();
-    var out = try glsl.emit(&s, s.findProgram(program).?, stage, dialect, testing.allocator);
+    var out = try emit.emit(&s, s.findProgram(program).?, stage, dialect, testing.allocator);
     defer out.deinit(testing.allocator);
     try testing.expectEqualStrings(want, out.text);
 }
@@ -141,7 +141,7 @@ test "a stage: header, the reached declarations in order, specs folded" {
 test "the line map takes a driver's log back to the sources" {
     var s = try session(&world);
     defer s.deinit();
-    var out = try glsl.emit(&s, s.findProgram("reef").?, .fragment, .glsl330, testing.allocator);
+    var out = try emit.emit(&s, s.findProgram("reef").?, .fragment, .glsl330, testing.allocator);
     defer out.deinit(testing.allocator);
     // the emitted line of `return fract(...)` comes from reef.bulg's line 2
     var line: u32 = 1;
@@ -158,7 +158,7 @@ test "the line map takes a driver's log back to the sources" {
     defer testing.allocator.free(log);
     var mapped: std.Io.Writer.Allocating = .init(testing.allocator);
     defer mapped.deinit();
-    try glsl.mapLog(&s, &out, log, &mapped.writer);
+    try emit.mapLog(&s, &out, log, &mapped.writer);
     try testing.expectEqualStrings("reef.bulg:2(12): error: x\nERROR: reef.bulg:2: y\nreef.bulg:2 : z\nversion 330 at 10:20\n", mapped.written());
 }
 
@@ -169,7 +169,7 @@ test "a stage whose modules have errors is not emitted" {
     _ = try s.addSource("f.bulg", "out vec4 c; void main() { c = 1; } program p { vertex \"v\"; fragment \"f\"; }");
     try s.analyze();
     try testing.expect(s.errorCount() > 0);
-    try testing.expectError(error.NotChecked, glsl.emit(&s, s.findProgram("p").?, .fragment, .es300, testing.allocator));
+    try testing.expectError(error.NotChecked, emit.emit(&s, s.findProgram("p").?, .fragment, .es300, testing.allocator));
     try testing.expect(!s.programChecked(s.findProgram("p").?));
 }
 
@@ -180,7 +180,7 @@ test "emitting runs out of memory cleanly" {
             defer s.deinit();
             for (world) |f| _ = try s.addSource(f[0], f[1]);
             try s.analyze();
-            var out = try glsl.emit(&s, s.findProgram("reef").?, .fragment, .es300, gpa);
+            var out = try emit.emit(&s, s.findProgram("reef").?, .fragment, .es300, gpa);
             out.deinit(gpa);
         }
     }.run, .{});
@@ -201,4 +201,66 @@ test "constant vectors and matrices, component by component" {
     const ints = eval.components(s.modules, 0, m.globals[3].init, .{ .values = &.{} }, &buf).?;
     try testing.expectEqual(@as(i32, 1), ints[0].int);
     try testing.expectEqual(@as(i32, -2), ints[1].int);
+}
+
+test "MSL spells out what Metal lacks" {
+    var s = try session(&.{
+        .{ "frame.bulg", "uniform block Frame { vec4 uRes4; vec3 uSun; float uTime; };\n" },
+        .{ "v.bulg", "out vec2 vUv;\nvoid main(){ vUv = vec2(0.); gl_Position = vec4(0., 0., 0., 1.); }\n" },
+        .{
+            "f.bulg",
+            \\import "frame";
+            \\in vec2 vUv;
+            \\out vec4 o;
+            \\uniform mat4 uM;
+            \\void main(){
+            \\  float c = cos(uTime), s = sin(uTime);
+            \\  mat2 r = mat2(c, -s, s, c);
+            \\  mat3 m = mat3(uM);
+            \\  vec3 v = vec3(vec4(uSun, 1.));
+            \\  bool x = (c > 0.) ^^ (s > 0.);
+            \\  bvec2 n = not(lessThan(vUv, vec2(.5)));
+            \\  vec2 q = vUv;
+            \\  q.yx *= r;
+            \\  uint bits = (uint(c) >> (2u * uint(s) + 1u)) & 1u;
+            \\  o = vec4(min(m * v, 0.), mod(atan(vUv.t, vUv.s), 2.)) + vec4(r * vUv.st + q, float(x), float(n.x) + float(bits));
+            \\}
+            \\program p { vertex "v"; fragment "f"; }
+        },
+    });
+    defer s.deinit();
+    var out = try emit.emit(&s, s.findProgram("p").?, .fragment, .msl, testing.allocator);
+    defer out.deinit(testing.allocator);
+    const want = [_][]const u8{
+        "float2x2 r = float2x2(float2(c, -s), float2(s, c));",
+        "float3x3 m = bulg_mat3(bulg_params->uM);",
+        "float3 v = float3(float4(bulg_Frame->uSun, 1.f).xyz);",
+        "bool x = c > 0.f != s > 0.f;",
+        "bool2 n = (!lessThan(vUv, float2(.5f)));",
+        "min(m * v, float3(0.f))",
+        "mod(atan2(vUv.y, vUv.x), 2.f)",
+        "r * vUv.xy",
+        "q.yx = q.yx * r;",
+        "uint bits = (uint(c) >> (2u * uint(s) + 1u)) & 1u;",
+        "packed_float3 uSun;",
+        "template<typename T> inline T mod(T x, T y)",
+        "inline float3x3 bulg_mat3(float4x4 m)",
+        "constant Frame& bulg_Frame_buffer [[buffer(0)]]",
+        "constant bulg_Params& bulg_params_buffer [[buffer(1)]]",
+    };
+    for (want) |w| if (std.mem.indexOf(u8, out.text, w) == null) {
+        std.debug.print("missing `{s}` in:\n{s}\n", .{ w, out.text });
+        return error.TestUnexpectedResult;
+    };
+
+    // and what a host binds for it
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const m = try emit.metalStage(&s, s.findProgram("p").?, .fragment, arena.allocator());
+    try testing.expectEqual(@as(usize, 1), m.blocks.len);
+    try testing.expectEqualStrings("Frame", m.blocks[0]);
+    try testing.expectEqual(@as(usize, 1), m.params.len);
+    try testing.expectEqualStrings("uM", m.params[0].name);
+    try testing.expectEqual(@as(u32, 64), m.params_size);
+    try testing.expectEqual(@as(usize, 0), m.textures.len);
 }

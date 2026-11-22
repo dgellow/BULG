@@ -48,8 +48,56 @@ again after a deliberate change, and the diff is the review.
 - The header is `#version 330 core`. The rest is the ES 3.00 text: BULG's v0 is inside
   what both dialects accept the same way.
 
-## WGSL and MSL
+## MSL (`msl`)
 
-Not yet. They come after the interpreter, WGSL first. Their coordinate convention (GL's
-y-up and `gl_FragCoord` origin, which the language keeps) is decided at the WGSL
-milestone.
+The body is the GLSL text with Metal's spellings. Every rule above holds.
+
+- **Types:** `float3`, `float3x3`, `int2`, `bool4` and so on; arrays are `array<T, N>`.
+  `half` is `float` in v0, as on GL.
+- **Literals:** each float literal gets an `f`, since C++ reads an unsuffixed one as a double.
+- **Built-ins:** most keep their name. A few are Metal's under another name: `atan2`,
+  `rsqrt`, `dfdx`, `dfdy`, `rint`, `select` for `mix` with a bool vector, `as_type` for the
+  bit casts, and the pack functions. The rest are prelude functions of the GLSL name,
+  written only when the text uses them:
+  - `mod`, `radians`, `degrees`;
+  - `lessThan` and its family;
+  - `matrixCompMult`, `outerProduct`, `inverse`;
+  - the texture functions on `sampler2D`, which is a struct of a `texture2d<float>` and a
+    `sampler`. In a vertex stage `texture` reads level 0.
+  Where GLSL mixes a scalar with vectors (`min(v, 0.)`, `mix(a, b, t)`), the scalar is
+  made the vector. GLSL constructors that Metal lacks are spelt out:
+  - a vector cut from a longer one becomes a swizzle;
+  - a matrix from scalars is built from its columns;
+  - a matrix from a scalar or from another size goes through a prelude function.
+- **The stage is one struct, `bulg_Stage`.** Metal has no mutable program-scope variables,
+  and a function sees only what it is given. So the stage's globals, inputs, outputs,
+  samplers and built-in variables (`gl_Position`, `gl_FragCoord`, ...) are members of the
+  struct. Its functions are member functions, as written, and `out` and `inout`
+  parameters are `thread T&`. Constants made of literals and constructors are `constant`
+  at program scope; any other constant is a member.
+- **Resources:**
+  - A uniform block is a struct with std140's offsets: padding where std140 puts a member
+    later, `packed_float3` for a vec3 followed by a scalar. Anything that cannot be made
+    to agree is refused, never laid out wrong.
+  - Members are read through `bulg_<Block>->`. Loose uniforms are gathered into
+    `bulg_Params` in the order of the text, with Metal's own layout, and read through
+    `bulg_params->`.
+- **The entry point is `bulg_main`.**
+  - Buffers: the blocks from 0 in the order of the text, then `bulg_Params`.
+  - Textures and samplers: from 0 in the order of the text.
+  - Vertex attributes: their location.
+  - Varyings match by name (`[[user(name)]]`), and `flat` is kept.
+  - Fragment outputs: `[[color(location)]]`.
+- **Coordinates:** the vertex entry hands Metal `gl_Position` with y negated and depth
+  moved from -1..1 to 0..1. Memory rows, texture coordinates, `gl_FragCoord` and the
+  sign of `dFdy` then keep GL's numbers, and a texture drawn in one pass is sampled in
+  the next as on GL. A target shown on screen is upside down relative to Metal's
+  convention: the host flips it when it presents it.
+- **Maths:** a host compiles the texts with fast math off (`MTLMathModeSafe`, or
+  `-fno-fast-math`): fast math assumes finite values, which the rule on NaN forbids.
+- Checked by Apple's compiler: CI compiles the golden texts for macOS and iOS
+  (`tests/metal_compile.sh`). The script does the same for any directory of emitted texts.
+
+## WGSL
+
+Not yet. It comes after the interpreter.

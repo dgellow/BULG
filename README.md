@@ -1,7 +1,7 @@
 # BULG
 
 The Backend-Unified Language for Graphics: a shading language and its compiler, in Zig.
-One source for GLSL ES 3.00 / WebGL 2 and GLSL 3.30 today, WGSL and MSL next, with
+One source for GLSL ES 3.00 / WebGL 2, GLSL 3.30 and MSL (Metal) today, WGSL next, with
 reflection that generates the host's uniform structs.
 
 GLSL-shaped, with the preprocessor replaced by declarations:

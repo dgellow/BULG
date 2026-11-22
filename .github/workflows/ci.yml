@@ -19,3 +19,12 @@ jobs:
       # the golden ES 3.00 texts, compiled and linked by ANGLE in headless Chromium
       - run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
       - run: zig build check-gpu
+
+  # the golden MSL texts, compiled by Apple's Metal compiler for macOS and iOS
+  metal:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: metal toolchain
+        run: xcrun -sdk macosx metal -v || xcodebuild -downloadComponent MetalToolchain
+      - run: tests/metal_compile.sh tests/golden
