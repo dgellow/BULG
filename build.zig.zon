@@ -1,0 +1,16 @@
+.{
+    .name = .glint,
+    .version = "0.1.0",
+    .fingerprint = 0x77d01758bfc7bac0,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "docs",
+        "tests",
+        "README.md",
+        "CHANGELOG.md",
+    },
+}
