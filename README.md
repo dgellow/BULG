@@ -18,9 +18,11 @@ v0.1: the front end.
 - A printer of the syntax tree.
 - The checker: types, overloads, imports, aliases, programs and `extern`s, into a typed
   IR. `docs/language.md` specifies what it checks.
+- The GLSL ES 3.00 and GLSL 3.30 emitters, with spec constants specialised and a line map
+  for drivers' logs. `docs/targets.md` specifies what they write.
 
-Next, in order: the GLSL emitters, reflection and the build helper, the interpreter, then
-WGSL and MSL (see CHANGELOG.md).
+Next, in order: reflection and the build helper, the interpreter, then WGSL and MSL (see
+CHANGELOG.md).
 
 ## The language, in one example
 
@@ -50,11 +52,15 @@ schema so that a misspelt key is an error.
 ```
 zig build          # the glint command, in zig-out/bin
 zig build test     # unit tests
-zig build check    # formatting, tests, the freestanding self-test under node, an iOS
-                   # compile, the command
+zig build check    # formatting, tests, the golden texts, the freestanding self-test
+                   # under node, an iOS compile, the command
+zig build check-gpu      # the golden ES 3.00 texts linked in Chromium's WebGL 2 (node,
+                         # Playwright)
+zig build update-golden  # record the emitters' texts as the golden ones
 zig-out/bin/glint parse FILE...   # diagnostics, and how many files parse
 zig-out/bin/glint check FILE...   # the files as one session's modules: diagnostics, and
                                   # how many modules check and programs link
+zig-out/bin/glint emit --dialect es300 --out DIR FILE...   # every program's stages
 zig-out/bin/glint print FILE      # the syntax tree as canonical text (no comments)
 zig-out/bin/glint print --shape FILE   # every operand in parentheses
 ```

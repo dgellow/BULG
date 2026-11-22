@@ -1849,7 +1849,11 @@ fn finishModules(c: *Checker) Error!void {
         const aliases = try c.a.alloc(Ir.Alias, m.aliases.items.len);
         for (m.aliases.items, aliases) |al, *o| o.* = .{ .name = m.text(m.node(al.node).data.alias.name), .value = al.value, .tok = m.node(al.node).data.alias.name };
         const structs = try c.a.alloc(Type, m.structs.items.len);
-        for (m.structs.items, structs) |sd, *o| o.* = sd.type;
+        const struct_toks = try c.a.alloc(u32, m.structs.items.len);
+        for (m.structs.items, structs, struct_toks) |sd, *o, *t| {
+            o.* = sd.type;
+            t.* = m.node(sd.node).data.struct_decl.name;
+        }
         const blocks = try c.a.alloc(Ir.Block, m.blocks.items.len);
         for (m.blocks.items, blocks) |b, *o| {
             const offsets = try c.a.alloc(u32, b.members.len);
@@ -1871,6 +1875,7 @@ fn finishModules(c: *Checker) Error!void {
             .aliases = aliases,
             .blocks = blocks,
             .structs = structs,
+            .struct_toks = struct_toks,
             .exprs = m.exprs.items,
             .stmts = m.stmts.items,
             .extra = m.extra.items,

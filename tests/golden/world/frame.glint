@@ -1,0 +1,8 @@
+// The block every stage shares, and the names the worlds use for parts of it.
+uniform block Frame {
+    vec4 uRes4;
+    vec4 uBeat4;
+    float uTime;
+};
+alias uRes = uRes4.xy;
+alias uKick = uBeat4.x;

@@ -230,6 +230,8 @@ pub const Module = struct {
     aliases: []const Alias,
     blocks: []const Block,
     structs: []const Type,
+    /// the name token of each struct's declaration
+    struct_toks: []const u32,
     exprs: []const Expr,
     stmts: []const Stmt,
     extra: []const u32,

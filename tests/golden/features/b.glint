@@ -1,0 +1,14 @@
+import "a";
+float hh(float x) { return x + 1.; }
+flat in int vKind;
+layout(location = 0) out vec4 color;
+in vec2 vUv;
+void main() {
+    Hit h;
+    bool inside = hit(vec3(vUv, 0.), h);
+    float k = hh(1.) + blur(vUv) + float(soft(half(h.d)));
+    uint u = hash(uint(vKind));
+    vec4 site = uSite[vKind & 3];
+    color = inside ? vec4(h.n, k) : site * float(u & 255u) / 255.;
+    if (color.a < .01) discard;
+}

@@ -25,6 +25,7 @@ pub const Session = @import("Session.zig");
 pub const Ir = @import("ir/Ir.zig");
 pub const types = @import("sema/types.zig");
 pub const builtins = @import("sema/builtins.zig");
+pub const glsl = @import("emit/glsl.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -38,4 +39,7 @@ test {
     _ = @import("sema/builtins.zig");
     _ = @import("sema/Checker.zig");
     _ = @import("sema/tests.zig");
+    _ = @import("ir/eval.zig");
+    _ = @import("emit/glsl.zig");
+    _ = @import("emit/tests.zig");
 }

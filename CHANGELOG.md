@@ -48,9 +48,18 @@ the emitters and the API separately.
   functions, what the stage uses). Everything in the session's arena.
 - `types` (the built-in types at fixed indices, interned structs and arrays, std140) and
   `builtins` (every overload, expanded at compile time).
-- The `glint` command: `parse`, `check` and `print [--shape]`.
+- The `glint` command: `parse`, `check`, `emit` and `print [--shape]`.
+- `Session.stageChecked`, `programChecked`; `Diagnostic.List.errorsIn` (per source, dropped
+  ones included).
 - `Source` (line and column of a span), `Diagnostic` (stable codes E0001-E0007, a list with
   a limit, rendering with a caret), `Limits`, `Token`, `Lexer.tokenize`.
 
 ### Emitters
-- None yet.
+- GLSL ES 3.00 and GLSL 3.30 (`glsl.emit`), as `docs/targets.md` specifies:
+  - complete texts, with spec constants specialised and `if (SPEC)` folded;
+  - only what `main` reaches, in the sources' order;
+  - literals as written, minimal parentheses;
+  - clashing names renamed;
+  - a line map, and `mapLog` for drivers' logs.
+- Golden texts (`tests/golden`, `zig build update-golden`).
+- `zig build check-gpu` links the golden ES 3.00 texts in Chromium's WebGL 2.

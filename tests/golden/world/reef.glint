@@ -1,0 +1,9 @@
+import "frame";
+import "common";
+vec3 scene(vec2 p) {
+    p *= rot(uTime * .1);
+    float d = length(p) - .5 + .1 * h21(floor(p * 8.));
+    return pal(d + uTime) * smoothstep(.02, 0., abs(d));
+}
+program reef : world { spec FADE = true; spec STEPS = 96; spec GAIN = -.5; }
+program reef_plain : world;

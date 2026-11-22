@@ -1,0 +1,23 @@
+import "frame";
+import "common" : pal;
+spec bool FADE = false;
+spec int STEPS = 48 { tiers(24, 48, 96) };
+spec float GAIN = 1.;
+extern vec3 scene(vec2 p);
+in vec2 vUv;
+out vec4 fragColor;
+float side = 0.;
+void main() {
+    vec2 p = (vUv * uRes - .5 * uRes) / uRes.y;
+    vec3 c = scene(p);
+    for (int i = 0, j = 1; i < STEPS; i += j) c = mix(c, pal(float(i) * .01), .01);
+    if (FADE) {
+        c *= .5 + .5 * uKick;
+    } else if (STEPS > 64) {
+        c = sqrt(c);
+    } else {
+        side = 1.;
+    }
+    fragColor = vec4(c * GAIN, FADE ? 1. : side);
+}
+program template world { vertex "fullscreen"; fragment "world_main"; }

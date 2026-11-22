@@ -1,8 +1,11 @@
 //! Glint builds and tests on its own: nothing here reaches outside this directory.
 //!   zig build         the `glint` command, in zig-out/bin
 //!   zig build test    unit tests on the host
-//!   zig build check   formatting, unit tests, the freestanding self-test under node, and
-//!                     a compile for iOS (no SDK needed)
+//!   zig build check   formatting, unit tests, the golden texts, the freestanding self-test
+//!                     under node, and a compile for iOS (no SDK needed)
+//!   zig build update-golden   record the emitters' texts as tests/golden's expected ones
+//!   zig build check-gpu       the golden ES 3.00 texts compiled in Chromium's WebGL 2
+//!                     (needs node and Playwright)
 
 const std = @import("std");
 
@@ -75,10 +78,37 @@ pub fn build(b: *std.Build) void {
     });
 
     const fmt = b.addFmt(.{ .paths = &.{ b.path("build.zig"), b.path("src") }, .check = true });
-    const check = b.step("check", "Formatting, unit tests, the freestanding self-test, an iOS compile");
+    // the golden texts (tests/golden): emitted now, against what was recorded
+    const golden = b.addExecutable(.{
+        .name = "golden",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/cli/golden.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "glint", .module = glint }},
+        }),
+    });
+    const run_golden = b.addRunArtifact(golden);
+    run_golden.addDirectoryArg(b.path("tests/golden"));
+    run_golden.has_side_effects = true;
+    const update_golden = b.addRunArtifact(golden);
+    update_golden.addDirectoryArg(b.path("tests/golden"));
+    update_golden.addArg("--update");
+    b.step("update-golden", "Record what the emitters write now as tests/golden's expected texts").dependOn(&update_golden.step);
+
+    // the golden ES 3.00 texts, compiled and linked by a real driver (ANGLE, in Chromium)
+    const webgl = b.addSystemCommand(&.{"node"});
+    webgl.addFileArg(b.path("tests/webgl_es300.mjs"));
+    webgl.addDirectoryArg(b.path("tests/golden"));
+    webgl.has_side_effects = true;
+    webgl.step.dependOn(&run_golden.step);
+    b.step("check-gpu", "The golden ES 3.00 texts compiled and linked in Chromium's WebGL 2").dependOn(&webgl.step);
+
+    const check = b.step("check", "Formatting, unit tests, golden texts, the freestanding self-test, an iOS compile");
     check.dependOn(&fmt.step);
     check.dependOn(&run_tests.step);
     check.dependOn(&run_selftest.step);
     check.dependOn(&ios.step);
     check.dependOn(&exe.step);
+    check.dependOn(&run_golden.step);
 }

@@ -101,6 +101,21 @@ pub fn findModule(s: *const Session, name: []const u8) ?u32 {
     return null;
 }
 
+/// Whether a stage of a program can be emitted: it linked, and neither its modules nor the
+/// module declaring the program have errors.
+pub fn stageChecked(s: *const Session, prog: *const Ir.Program, stage: Ir.StageInfo) bool {
+    if (s.diags.errorsIn(s.modules[prog.module].src) > 0) return false;
+    for (stage.modules) |m| if (s.diags.errorsIn(s.modules[m].src) > 0) return false;
+    return true;
+}
+
+/// Whether both stages of a program can be emitted.
+pub fn programChecked(s: *const Session, prog: *const Ir.Program) bool {
+    const v = prog.vertex orelse return false;
+    const f = prog.fragment orelse return false;
+    return s.stageChecked(prog, v) and s.stageChecked(prog, f);
+}
+
 pub fn findProgram(s: *const Session, name: []const u8) ?*const Ir.Program {
     for (s.programs) |*p| if (std.mem.eql(u8, p.name, name)) return p;
     return null;

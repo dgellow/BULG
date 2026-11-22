@@ -125,10 +125,23 @@ pub const List = struct {
     /// diagnostics beyond the limit, not stored
     dropped: u32 = 0,
     errors: u32 = 0,
+    /// errors of each source, dropped ones included
+    per_source: std.ArrayList(u32) = .empty,
     limit: u16,
 
+    /// The errors in source `src`, dropped ones included.
+    pub fn errorsIn(l: *const List, src: @import("Source.zig").Id) u32 {
+        const i: usize = @backingInt(src);
+        return if (i < l.per_source.items.len) l.per_source.items[i] else 0;
+    }
+
     pub fn add(l: *List, gpa: std.mem.Allocator, d: Diagnostic) error{OutOfMemory}!void {
-        if (d.severity == .@"error") l.errors += 1;
+        if (d.severity == .@"error") {
+            l.errors += 1;
+            const i: usize = @backingInt(d.span.src);
+            if (l.per_source.items.len <= i) try l.per_source.appendNTimes(gpa, 0, i + 1 - l.per_source.items.len);
+            l.per_source.items[i] += 1;
+        }
         if (l.items.items.len >= l.limit) {
             l.dropped += 1;
             return;
@@ -138,6 +151,7 @@ pub const List = struct {
 
     pub fn deinit(l: *List, gpa: std.mem.Allocator) void {
         l.items.deinit(gpa);
+        l.per_source.deinit(gpa);
     }
 };
 
