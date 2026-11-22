@@ -9,4 +9,4 @@ if (n <= 0) {
   console.error(`glint: wasm self-test failed (${n})`);
   process.exit(1);
 }
-console.log(`glint: wasm self-test parsed and printed ${n} nodes`);
+console.log(`glint: wasm self-test parsed and printed ${n} nodes, and checked a program`);

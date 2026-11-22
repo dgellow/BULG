@@ -7,7 +7,8 @@ const Source = @import("Source.zig");
 pub const Severity = enum { @"error", warning };
 
 /// Stable codes: a code keeps its number and meaning across versions; new ones are added
-/// at the end of their range. E0001-E0099: lexing; E0100-: parsing (later ranges follow).
+/// at the end of their range. E0001-E0099: lexing; E0100-E0199: parsing; E0200-E0299:
+/// checking and linking.
 pub const Code = enum(u16) {
     /// `#define`, `#ifdef` and the like: Glint has no preprocessor
     preprocessor_directive = 1,
@@ -39,6 +40,68 @@ pub const Code = enum(u16) {
     unknown_layout = 106,
     /// qualifiers on a function, or `layout` on something that is not `in`/`out`
     misplaced_qualifier = 107,
+    /// a name that nothing declares
+    unknown_name = 200,
+    /// a type name that nothing declares
+    unknown_type = 201,
+    /// a name declared twice in one scope
+    duplicate_declaration = 202,
+    /// a value of one type where another is needed (Glint converts nothing implicitly)
+    type_mismatch = 203,
+    /// a call no overload of the function takes
+    no_overload = 204,
+    /// an assignment, `++`, `--` or `out` argument to something that cannot be written
+    not_assignable = 205,
+    /// a value that must be known at compile time and is not
+    not_constant = 206,
+    /// a constructor with the wrong arguments
+    bad_constructor = 207,
+    /// an operator on operands it does not take
+    bad_operands = 208,
+    /// a swizzle with letters a vector does not have, or mixed sets
+    bad_swizzle = 209,
+    /// indexing something that has no elements, or with a non-integer
+    bad_index = 210,
+    /// a field a struct does not have
+    unknown_field = 211,
+    /// a call of something that is not a function or a type
+    not_callable = 212,
+    /// a `return` that does not match the function's type
+    bad_return = 213,
+    /// `break` or `continue` outside a loop
+    outside_loop = 214,
+    /// a function that calls itself, directly or not
+    recursion = 215,
+    /// an import or a stage of a module that is not in the session
+    unknown_module = 216,
+    /// a name two imported modules declare
+    ambiguous_name = 217,
+    /// a declaration in a place it cannot be (a uniform in a function, `layout` on a
+    /// constant, a sampler in a local, ...)
+    misplaced_declaration = 218,
+    /// a struct that contains itself, or aliases that name each other
+    declaration_cycle = 219,
+    /// a function with the name of a built-in function, or a name reserved for them
+    reserved_name = 220,
+    /// an array size that is not a positive constant integer
+    bad_array_size = 221,
+    /// a constant index past the end of an array, a vector or a matrix
+    index_out_of_range = 222,
+    /// a prototype without its definition in the module (an `extern` is the way to
+    /// leave a function to another module)
+    missing_definition = 223,
+    /// a declaration that needs an initialiser and has none, or has one it cannot have
+    bad_initializer = 224,
+    /// a `program` that names an unknown parent, or is its own ancestor
+    bad_program = 225,
+    /// a program stage without `void main()`
+    missing_main = 226,
+    /// an `extern` that no module of the stage defines, or more than one does
+    unresolved_extern = 227,
+    /// a stage that uses what only the other stage has (`discard` in a vertex stage)
+    wrong_stage = 228,
+    /// `spec NAME = value;` in a program, for a NAME that is no spec constant
+    unknown_spec = 229,
     _,
 
     /// `E0001`

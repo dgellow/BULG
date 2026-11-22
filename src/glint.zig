@@ -1,9 +1,8 @@
 //! Glint: a small shading language and its compiler, in Zig, for programs that want one
 //! shader source for Metal, WebGPU and OpenGL ES / WebGL 2. See README.md.
 //!
-//! v0.1 has the front of the front end: sources, spans, diagnostics, the lexer, the parser
-//! and the syntax tree's printer. The checker, IR, emitters, reflection and interpreter
-//! follow (CHANGELOG.md).
+//! v0.1 is the front end: the lexer, the parser and its printer, the checker and the typed
+//! IR, in a `Session`. The emitters, reflection and the interpreter follow (CHANGELOG.md).
 //!
 //! The core uses nothing but the allocator it is given: no globals, no I/O, no threads,
 //! no clock, no libc. It builds for any target, `wasm32-freestanding` included.
@@ -22,6 +21,10 @@ pub const Lexer = @import("syntax/Lexer.zig");
 pub const Ast = @import("syntax/Ast.zig");
 pub const Parser = @import("syntax/Parser.zig");
 pub const parse = Parser.parse;
+pub const Session = @import("Session.zig");
+pub const Ir = @import("ir/Ir.zig");
+pub const types = @import("sema/types.zig");
+pub const builtins = @import("sema/builtins.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -31,4 +34,8 @@ test {
     _ = @import("syntax/Lexer.zig");
     _ = @import("syntax/Ast.zig");
     _ = @import("syntax/Parser.zig");
+    _ = @import("sema/types.zig");
+    _ = @import("sema/builtins.zig");
+    _ = @import("sema/Checker.zig");
+    _ = @import("sema/tests.zig");
 }

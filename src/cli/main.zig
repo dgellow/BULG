@@ -2,6 +2,8 @@
 //! touches the file system.
 //!
 //!   glint parse FILE...   parse each file; print diagnostics and how many files parsed
+//!   glint check FILE...   check the files as the modules of one session: print
+//!                         diagnostics, how many modules check and programs link
 //!   glint print [--shape] FILE
 //!                         print FILE's tree as canonical text (comments are not kept;
 //!                         exit 1 if it does not parse); --shape puts every operand in
@@ -12,6 +14,7 @@ const glint = @import("glint");
 
 const usage =
     \\usage: glint parse FILE...
+    \\       glint check FILE...
     \\       glint print [--shape] FILE
     \\
 ;
@@ -45,6 +48,7 @@ pub fn main(init: std.process.Init) !u8 {
         try out.print("{d} of {d} files parse\n", .{ ok, files.len });
         return if (ok == files.len) 0 else 1;
     }
+    if (std.mem.eql(u8, cmd, "check")) return check(gpa, io, files, out, err);
     if (std.mem.eql(u8, cmd, "print")) {
         const shape = files.len == 2 and std.mem.eql(u8, files[0], "--shape");
         if (files.len == 1 or shape) {
@@ -78,4 +82,42 @@ fn parseFile(gpa: std.mem.Allocator, io: std.Io, path: []const u8, err: *std.Io.
     if (diags.errors > 0) return false;
     if (print) |p| try ast.printWith(p.w, p.options);
     return true;
+}
+
+fn check(gpa: std.mem.Allocator, io: std.Io, files: []const [:0]const u8, out: *std.Io.Writer, err: *std.Io.Writer) !u8 {
+    var s: glint.Session = .init(gpa, .{});
+    defer s.deinit();
+    for (files) |path| {
+        const text = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(s.limits.source_bytes)) catch |e| {
+            try err.print("{s}: cannot read: {t}\n", .{ path, e });
+            return 1;
+        };
+        defer gpa.free(text);
+        _ = try s.addSource(path, text);
+    }
+    try s.analyze();
+    const bad = try s.arena().alloc(bool, files.len);
+    @memset(bad, false);
+    for (s.diagnostics()) |d| {
+        try d.render(err, s.source(d.span.src));
+        bad[@backingInt(d.span.src)] = true;
+    }
+    if (s.diags.dropped > 0) try err.print("{d} more diagnostics\n", .{s.diags.dropped});
+    var ok: usize = 0;
+    for (bad) |b| ok += @intFromBool(!b);
+    var programs: usize = 0;
+    var linked: usize = 0;
+    for (s.programs) |p| {
+        if (p.is_template) continue;
+        programs += 1;
+        const v = p.vertex orelse continue;
+        const f = p.fragment orelse continue;
+        var clean = !bad[p.module];
+        for ([_][]const u32{ v.modules, f.modules }) |ms| for (ms) |m| {
+            if (bad[m]) clean = false;
+        };
+        if (clean) linked += 1;
+    }
+    try out.print("{d} of {d} modules check, {d} of {d} programs link\n", .{ ok, files.len, linked, programs });
+    return if (s.errorCount() == 0) 0 else 1;
 }

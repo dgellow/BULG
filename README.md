@@ -13,15 +13,18 @@ host executes.
 
 ## Status
 
-v0.1: sources, spans, diagnostics, the lexer, the parser (with recovery: one mistake, one
-diagnostic) and a printer of the syntax tree. The checker and IR, the GLSL emitters,
-reflection and the build helper, the interpreter, then WGSL and MSL follow, in that order
-(see CHANGELOG.md).
+v0.1: the front end.
+- The lexer and the parser, with recovery: one mistake gives one diagnostic.
+- A printer of the syntax tree.
+- The checker: types, overloads, imports, aliases, programs and `extern`s, into a typed
+  IR. `docs/language.md` specifies what it checks.
+
+Next, in order: the GLSL emitters, reflection and the build helper, the interpreter, then
+WGSL and MSL (see CHANGELOG.md).
 
 ## The language, in one example
 
-The syntax is GLSL's, with a preprocessor replaced by declarations. v0.1 parses all of
-this; what it means (types, imports, programs) comes with the checker:
+The syntax is GLSL's, with a preprocessor replaced by declarations (`docs/language.md`):
 
 ```glsl
 import "common";                          // a module is a file
@@ -50,6 +53,8 @@ zig build test     # unit tests
 zig build check    # formatting, tests, the freestanding self-test under node, an iOS
                    # compile, the command
 zig-out/bin/glint parse FILE...   # diagnostics, and how many files parse
+zig-out/bin/glint check FILE...   # the files as one session's modules: diagnostics, and
+                                  # how many modules check and programs link
 zig-out/bin/glint print FILE      # the syntax tree as canonical text (no comments)
 zig-out/bin/glint print --shape FILE   # every operand in parentheses
 ```
