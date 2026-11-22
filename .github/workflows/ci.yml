@@ -10,12 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.17.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: zig
+        run: |
+          curl -sSfL https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-x86_64-linux-0.17.1" >> "$GITHUB_PATH"
+      # node (for the wasm self-test and Playwright) is on the runner already
       - run: zig build check
       # the golden ES 3.00 texts, compiled and linked by ANGLE in headless Chromium
       - run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
