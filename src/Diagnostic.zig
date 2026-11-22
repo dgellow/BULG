@@ -23,6 +23,22 @@ pub const Code = enum(u16) {
     too_many_tokens = 6,
     /// `"` without its closing `"` on the same line
     unterminated_string = 7,
+    /// a token other than the one the grammar needs here
+    expected_token = 100,
+    /// `while`, `do` and `switch`: not in Glint v0
+    unsupported_statement = 101,
+    /// `precision ...;`: precision is the target's business
+    precision_statement = 102,
+    /// expressions, statements or blocks nested deeper than `Limits.nesting`
+    nesting_too_deep = 103,
+    /// no expression where one is needed
+    expected_expression = 104,
+    /// no declaration where a module item is needed
+    expected_declaration = 105,
+    /// `layout(...)` with something other than `location = n`
+    unknown_layout = 106,
+    /// qualifiers on a function, or `layout` on something that is not `in`/`out`
+    misplaced_qualifier = 107,
     _,
 
     /// `E0001`

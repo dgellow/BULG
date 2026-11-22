@@ -1,4 +1,5 @@
 //! Glint builds and tests on its own: nothing here reaches outside this directory.
+//!   zig build         the `glint` command, in zig-out/bin
 //!   zig build test    unit tests on the host
 //!   zig build check   formatting, unit tests, the freestanding self-test under node, and
 //!                     a compile for iOS (no SDK needed)
@@ -16,7 +17,29 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const tests = b.addTest(.{ .root_module = glint });
+    // the command line tool
+    const exe = b.addExecutable(.{
+        .name = "glint",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/cli/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "glint", .module = glint }},
+        }),
+    });
+    b.installArtifact(exe);
+    const run_exe = b.addRunArtifact(exe);
+    run_exe.addPassthruArgs();
+    b.step("run", "Run the glint command: zig build run -- parse FILE...").dependOn(&run_exe.step);
+
+    // the tests get the README too, to check that its example parses
+    const test_mod = b.createModule(.{
+        .root_source_file = b.path("src/glint.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    test_mod.addAnonymousImport("README.md", .{ .root_source_file = b.path("README.md") });
+    const tests = b.addTest(.{ .root_module = test_mod });
     const run_tests = b.addRunArtifact(tests);
     b.step("test", "Run the unit tests").dependOn(&run_tests.step);
 
@@ -57,4 +80,5 @@ pub fn build(b: *std.Build) void {
     check.dependOn(&run_tests.step);
     check.dependOn(&run_selftest.step);
     check.dependOn(&ios.step);
+    check.dependOn(&exe.step);
 }

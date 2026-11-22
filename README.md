@@ -13,14 +13,15 @@ host executes.
 
 ## Status
 
-v0.1: sources, spans, diagnostics and the lexer. The parser, the checker and IR, the GLSL
-emitters, reflection and the build helper, the interpreter, then WGSL and MSL follow, in
-that order (see CHANGELOG.md).
+v0.1: sources, spans, diagnostics, the lexer, the parser (with recovery: one mistake, one
+diagnostic) and a printer of the syntax tree. The checker and IR, the GLSL emitters,
+reflection and the build helper, the interpreter, then WGSL and MSL follow, in that order
+(see CHANGELOG.md).
 
 ## The language, in one example
 
-The syntax is GLSL's, with a preprocessor replaced by declarations. This is where v0 is
-going, not what v0.1 parses yet:
+The syntax is GLSL's, with a preprocessor replaced by declarations. v0.1 parses all of
+this; what it means (types, imports, programs) comes with the checker:
 
 ```glsl
 import "common";                          // a module is a file
@@ -44,8 +45,13 @@ schema so that a misspelt key is an error.
 ## Using it
 
 ```
+zig build          # the glint command, in zig-out/bin
 zig build test     # unit tests
-zig build check    # formatting, tests, the freestanding self-test under node, an iOS compile
+zig build check    # formatting, tests, the freestanding self-test under node, an iOS
+                   # compile, the command
+zig-out/bin/glint parse FILE...   # diagnostics, and how many files parse
+zig-out/bin/glint print FILE      # the syntax tree as canonical text (no comments)
+zig-out/bin/glint print --shape FILE   # every operand in parentheses
 ```
 
 As a dependency: `.glint = .{ .path = "lib/glint" }` (or a URL and hash), then
