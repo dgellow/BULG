@@ -25,7 +25,8 @@ pub const Session = @import("Session.zig");
 pub const Ir = @import("ir/Ir.zig");
 pub const types = @import("sema/types.zig");
 pub const builtins = @import("sema/builtins.zig");
-pub const glsl = @import("emit/glsl.zig");
+/// The emitters: GLSL ES 3.00, GLSL 3.30 and MSL.
+pub const emit = @import("emit/emit.zig");
 pub const reflect = @import("reflect/Reflection.zig");
 pub const zig_gen = @import("reflect/zig.zig");
 pub const reflection_json = @import("reflect/json.zig");
@@ -43,7 +44,8 @@ test {
     _ = @import("sema/Checker.zig");
     _ = @import("sema/tests.zig");
     _ = @import("ir/eval.zig");
-    _ = @import("emit/glsl.zig");
+    _ = @import("emit/emit.zig");
+    _ = @import("emit/msl.zig");
     _ = @import("emit/tests.zig");
     _ = @import("ir/reach.zig");
     _ = @import("reflect/Reflection.zig");

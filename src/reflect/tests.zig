@@ -190,11 +190,11 @@ test "a tree is checked, emitted and reflected in a fixed buffer" {
     for (sources) |f| _ = try s.addSource(f[0], f[1]);
     try s.analyze();
     try testing.expectEqual(@as(u32, 0), s.errorCount());
-    const glsl = @import("../emit/glsl.zig");
+    const emit = @import("../emit/emit.zig");
     for (s.programs) |*p| {
         if (p.is_template) continue;
-        for ([_]glsl.Dialect{ .es300, .glsl330 }) |d| for ([_]@import("../ir/Ir.zig").Stage{ .vertex, .fragment }) |st| {
-            var e = try glsl.emit(&s, p, st, d, s.arena());
+        for ([_]emit.Dialect{ .es300, .glsl330 }) |d| for ([_]@import("../ir/Ir.zig").Stage{ .vertex, .fragment }) |st| {
+            var e = try emit.emit(&s, p, st, d, s.arena());
             _ = &e;
         };
         _ = try R.reflect(&s, p, s.arena());

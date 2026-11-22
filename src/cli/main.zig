@@ -4,7 +4,7 @@
 //!   bulg parse FILE...   parse each file; print diagnostics and how many files parsed
 //!   bulg check FILE...   check the files as the modules of one session: print
 //!                         diagnostics, how many modules check and programs link
-//!   bulg emit [--dialect es300|glsl330] --out DIR FILE...
+//!   bulg emit [--dialect es300|glsl330|msl] --out DIR FILE...
 //!                         check the files, and write each linked program's stages as
 //!                         DIR/NAME.vert and DIR/NAME.frag
 //!   bulg gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
@@ -23,7 +23,7 @@ const bulg = @import("bulg");
 const usage =
     \\usage: bulg parse FILE...
     \\       bulg check FILE...
-    \\       bulg emit [--dialect es300|glsl330] --out DIR FILE...
+    \\       bulg emit [--dialect es300|glsl330|msl] --out DIR FILE...
     \\       bulg gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
     \\       bulg reflect FILE...
     \\       bulg print [--shape] FILE
@@ -149,15 +149,15 @@ fn load(gpa: std.mem.Allocator, io: std.Io, s: *bulg.Session, files: []const [:0
 }
 
 fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std.Io.Writer, err: *std.Io.Writer) !u8 {
-    var dialect: bulg.glsl.Dialect = .glsl330;
+    var dialect: bulg.emit.Dialect = .glsl330;
     var dir: ?[]const u8 = null;
     var i: usize = 0;
     while (i + 1 < raw.len and std.mem.startsWith(u8, raw[i], "--")) : (i += 2) {
         if (std.mem.eql(u8, raw[i], "--out")) {
             dir = raw[i + 1];
         } else if (std.mem.eql(u8, raw[i], "--dialect")) {
-            dialect = std.meta.stringToEnum(bulg.glsl.Dialect, raw[i + 1]) orelse {
-                try err.print("unknown dialect `{s}` (es300, glsl330)\n", .{raw[i + 1]});
+            dialect = std.meta.stringToEnum(bulg.emit.Dialect, raw[i + 1]) orelse {
+                try err.print("unknown dialect `{s}` (es300, glsl330, msl)\n", .{raw[i + 1]});
                 return 2;
             };
         } else break;
@@ -182,23 +182,30 @@ fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std
         if (p.is_template) continue;
         programs += 1;
         if (!s.programChecked(p)) continue;
-        for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
-            var e = try bulg.glsl.emit(&s, p, stage, dialect, gpa);
+        const ok = for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
+            var why: []const u8 = "";
+            var e = bulg.emit.emitWhy(&s, p, stage, dialect, gpa, &why) catch |x| switch (x) {
+                error.Unsupported => {
+                    try err.print("{s} ({t}): {t} cannot say {s} yet\n", .{ p.name, stage, dialect, why });
+                    break false;
+                },
+                else => |y| return y,
+            };
             defer e.deinit(gpa);
-            const name = try std.fmt.allocPrint(s.arena(), "{s}.{s}", .{ p.name, if (stage == .vertex) "vert" else "frag" });
+            const name = try std.fmt.allocPrint(s.arena(), "{s}.{s}", .{ p.name, dialect.extension(stage) });
             try d.writeFile(io, .{ .sub_path = name, .data = e.text });
-        }
-        written += 1;
+        } else true;
+        if (ok) written += 1;
     }
     try out.print("{d} of {d} programs emitted ({t})\n", .{ written, programs, dialect });
-    return if (s.errorCount() == 0) 0 else 1;
+    return if (s.errorCount() == 0 and written == programs) 0 else 1;
 }
 
 fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.Io.Writer) !u8 {
     var root: ?[]const u8 = null;
     var out_path: ?[]const u8 = null;
     var dep_path: ?[]const u8 = null;
-    var dialects: std.ArrayList(bulg.glsl.Dialect) = .empty;
+    var dialects: std.ArrayList(bulg.emit.Dialect) = .empty;
     defer dialects.deinit(gpa);
     var i: usize = 0;
     while (i + 1 < raw.len) : (i += 2) {
@@ -210,8 +217,8 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
         } else if (std.mem.eql(u8, raw[i], "--depfile")) {
             dep_path = v;
         } else if (std.mem.eql(u8, raw[i], "--dialect")) {
-            try dialects.append(gpa, std.meta.stringToEnum(bulg.glsl.Dialect, v) orelse {
-                try err.print("unknown dialect `{s}` (es300, glsl330)\n", .{v});
+            try dialects.append(gpa, std.meta.stringToEnum(bulg.emit.Dialect, v) orelse {
+                try err.print("unknown dialect `{s}` (es300, glsl330, msl)\n", .{v});
                 return 2;
             });
         } else break;
@@ -256,6 +263,10 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
     const text = bulg.zig_gen.generate(&s, .{ .dialects = dialects.items }, gpa) catch |e| switch (e) {
         error.NotChecked => unreachable, // no errors
         error.OutOfMemory => return error.OutOfMemory,
+        error.Unsupported => {
+            try err.print("bulg gen: a program the dialects asked for cannot say (bulg emit names it)\n", .{});
+            return 1;
+        },
     };
     defer gpa.free(text);
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = out_path.?, .data = text });

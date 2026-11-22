@@ -53,10 +53,10 @@ pub fn main(init: std.process.Init) !u8 {
         defer expected.close(io);
         for (s.programs) |*p| {
             if (p.is_template) continue;
-            for ([_]bulg.glsl.Dialect{ .es300, .glsl330 }) |dialect| for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
-                var e = try bulg.glsl.emit(&s, p, stage, dialect, gpa);
+            for ([_]bulg.emit.Dialect{ .es300, .glsl330, .msl }) |dialect| for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
+                var e = try bulg.emit.emit(&s, p, stage, dialect, gpa);
                 defer e.deinit(gpa);
-                const file = try std.fmt.allocPrint(arena, "{s}.{t}.{s}", .{ p.name, dialect, if (stage == .vertex) "vert" else "frag" });
+                const file = try std.fmt.allocPrint(arena, "{s}.{t}.{s}", .{ p.name, dialect, dialect.extension(stage) });
                 texts += 1;
                 if (update) {
                     try expected.writeFile(io, .{ .sub_path = file, .data = e.text });

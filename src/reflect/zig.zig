@@ -5,17 +5,17 @@
 const std = @import("std");
 const Session = @import("../Session.zig");
 const Ir = @import("../ir/Ir.zig");
-const glsl = @import("../emit/glsl.zig");
+const emit = @import("../emit/emit.zig");
 const types = @import("../sema/types.zig");
 const R = @import("Reflection.zig");
 const version = @import("../bulg.zig").version;
 const Type = types.Type;
 
-pub const Error = error{ OutOfMemory, NotChecked };
+pub const Error = error{ OutOfMemory, NotChecked, Unsupported };
 
 pub const Options = struct {
     /// the dialects whose texts are in the file (each program gets a field per dialect)
-    dialects: []const glsl.Dialect = &.{ .es300, .glsl330 },
+    dialects: []const emit.Dialect = &.{ .es300, .glsl330 },
 };
 
 /// The Zig source for every program of the session that checks (all must: a program
@@ -189,7 +189,7 @@ const Gen = struct {
         for ([_]Ir.Stage{ .vertex, .fragment }) |stage| {
             try g.print("    pub const {s}: Texts = .init(.{{\n", .{@tagName(stage)});
             for (g.options.dialects) |d| {
-                var e = try glsl.emit(g.s, p, stage, d, g.a);
+                var e = try emit.emit(g.s, p, stage, d, g.a);
                 try g.print("        .{t} =\n", .{d});
                 var it = std.mem.splitScalar(u8, e.text, '\n');
                 while (it.next()) |line| {
