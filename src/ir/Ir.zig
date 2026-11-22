@@ -222,7 +222,7 @@ pub const Alias = struct {
 };
 
 pub const Module = struct {
-    /// `art/art_core` for art/art_core.glint
+    /// `art/art_core` for art/art_core.bulg
     name: []const u8,
     src: Source.Id,
     globals: []const Global,

@@ -15,7 +15,7 @@ pub const Specs = struct {
     }
 };
 
-/// The value of `e` in module `mi`, or null when it is not a constant Glint can compute.
+/// The value of `e` in module `mi`, or null when it is not a constant BULG can compute.
 /// A spec constant has the variant's value (or its default).
 pub fn constant(modules: []const Ir.Module, mi: u32, e: Ir.ExprId, specs: Specs) ?Ir.Const {
     if (e == .none) return null;
@@ -190,7 +190,7 @@ test "integer folding wraps and refuses what GLSL leaves undefined" {
 }
 
 /// The components of a constant scalar, vector or matrix expression (columns of a matrix
-/// one after the other), or null when it is not one Glint can compute. `out` holds up to
+/// one after the other), or null when it is not one BULG can compute. `out` holds up to
 /// 16; the result is a slice of it.
 pub fn components(modules: []const Ir.Module, mi: u32, e: Ir.ExprId, specs: Specs, out: *[16]Ir.Const) ?[]Ir.Const {
     if (e == .none) return null;

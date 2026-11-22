@@ -5,7 +5,7 @@
 //! anything went wrong.
 
 const std = @import("std");
-const glint = @import("glint");
+const bulg = @import("bulg");
 
 var memory: [256 * 1024]u8 = undefined;
 var printed: [4 * 1024]u8 = undefined;
@@ -36,25 +36,25 @@ const reef =
     \\program reef : world { spec FADE = true; }
 ;
 
-export fn glint_selftest() i32 {
+export fn bulg_selftest() i32 {
     var fba: std.heap.FixedBufferAllocator = .init(&memory);
     const gpa = fba.allocator();
-    var diags: glint.Diagnostic.List = .{ .limit = 16 };
-    const ast = glint.parse(gpa, @fromBackingInt(@intCast(0)), sample, .{}, &diags) catch return -1;
+    var diags: bulg.Diagnostic.List = .{ .limit = 16 };
+    const ast = bulg.parse(gpa, @fromBackingInt(@intCast(0)), sample, .{}, &diags) catch return -1;
     if (diags.errors != 0) return -2;
     var w: std.Io.Writer = .fixed(&printed);
     ast.print(&w) catch return -3;
-    const again = glint.parse(gpa, @fromBackingInt(@intCast(0)), w.buffered(), .{}, &diags) catch return -4;
+    const again = bulg.parse(gpa, @fromBackingInt(@intCast(0)), w.buffered(), .{}, &diags) catch return -4;
     if (diags.errors != 0) return -5;
     var w2: std.Io.Writer = .fixed(&reprinted);
     again.print(&w2) catch return -6;
     if (!std.mem.eql(u8, w.buffered(), w2.buffered())) return -7;
 
-    var session: glint.Session = .init(gpa, .{});
+    var session: bulg.Session = .init(gpa, .{});
     defer session.deinit();
-    _ = session.addSource("fullscreen.glint", "void main() { gl_Position = vec4(0., 0., 0., 1.); }") catch return -8;
-    _ = session.addSource("world_main.glint", world_main) catch return -8;
-    _ = session.addSource("worlds/reef.glint", reef) catch return -8;
+    _ = session.addSource("fullscreen.bulg", "void main() { gl_Position = vec4(0., 0., 0., 1.); }") catch return -8;
+    _ = session.addSource("world_main.bulg", world_main) catch return -8;
+    _ = session.addSource("worlds/reef.bulg", reef) catch return -8;
     session.analyze() catch return -9;
     if (session.errorCount() != 0) return -10;
     const p = session.findProgram("reef") orelse return -11;

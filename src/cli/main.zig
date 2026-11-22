@@ -1,32 +1,32 @@
-//! The `glint` command: the library on files. It is the only part of the package that
+//! The `bulg` command: the library on files. It is the only part of the package that
 //! touches the file system.
 //!
-//!   glint parse FILE...   parse each file; print diagnostics and how many files parsed
-//!   glint check FILE...   check the files as the modules of one session: print
+//!   bulg parse FILE...   parse each file; print diagnostics and how many files parsed
+//!   bulg check FILE...   check the files as the modules of one session: print
 //!                         diagnostics, how many modules check and programs link
-//!   glint emit [--dialect es300|glsl330] --out DIR FILE...
+//!   bulg emit [--dialect es300|glsl330] --out DIR FILE...
 //!                         check the files, and write each linked program's stages as
 //!                         DIR/NAME.vert and DIR/NAME.frag
-//!   glint gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
-//!                         the shader tree under DIR (every .glint file, named by its
+//!   bulg gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
+//!                         the shader tree under DIR (every .bulg file, named by its
 //!                         path in DIR) as one Zig source: texts and reflection
-//!   glint reflect FILE...  check the files, and print every program's reflection as JSON
-//!                         (glint.reflection/1)
-//!   glint print [--shape] FILE
+//!   bulg reflect FILE...  check the files, and print every program's reflection as JSON
+//!                         (bulg.reflection/1)
+//!   bulg print [--shape] FILE
 //!                         print FILE's tree as canonical text (comments are not kept;
 //!                         exit 1 if it does not parse); --shape puts every operand in
 //!                         parentheses, to compare two trees
 
 const std = @import("std");
-const glint = @import("glint");
+const bulg = @import("bulg");
 
 const usage =
-    \\usage: glint parse FILE...
-    \\       glint check FILE...
-    \\       glint emit [--dialect es300|glsl330] --out DIR FILE...
-    \\       glint gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
-    \\       glint reflect FILE...
-    \\       glint print [--shape] FILE
+    \\usage: bulg parse FILE...
+    \\       bulg check FILE...
+    \\       bulg emit [--dialect es300|glsl330] --out DIR FILE...
+    \\       bulg gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
+    \\       bulg reflect FILE...
+    \\       bulg print [--shape] FILE
     \\
 ;
 
@@ -63,13 +63,13 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, cmd, "emit")) return emit(gpa, io, files, out, err);
     if (std.mem.eql(u8, cmd, "gen")) return gen(gpa, io, files, err);
     if (std.mem.eql(u8, cmd, "reflect")) {
-        var s: glint.Session = .init(gpa, .{});
+        var s: bulg.Session = .init(gpa, .{});
         defer s.deinit();
         if (!try load(gpa, io, &s, files, err)) return 1;
         try s.analyze();
         for (s.diagnostics()) |d| try d.render(err, s.source(d.span.src));
         if (s.errorCount() > 0) return 1;
-        glint.reflection_json.write(&s, out, s.arena()) catch |e| switch (e) {
+        bulg.reflection_json.write(&s, out, s.arena()) catch |e| switch (e) {
             error.NotChecked => unreachable, // no errors
             else => |x| return x,
         };
@@ -79,7 +79,7 @@ pub fn main(init: std.process.Init) !u8 {
     if (std.mem.eql(u8, cmd, "print")) {
         const shape = files.len == 2 and std.mem.eql(u8, files[0], "--shape");
         if (files.len == 1 or shape) {
-            const options: glint.Ast.PrintOptions = .{ .all_parens = shape };
+            const options: bulg.Ast.PrintOptions = .{ .all_parens = shape };
             return if (try parseFile(gpa, io, files[files.len - 1], err, .{ .w = out, .options = options })) 0 else 1;
         }
     }
@@ -89,20 +89,20 @@ pub fn main(init: std.process.Init) !u8 {
 
 /// Parses one file, rendering its diagnostics to `err`; with `print`, writes its canonical
 /// form there when it parsed. Returns whether it parsed without errors.
-const Print = struct { w: *std.Io.Writer, options: glint.Ast.PrintOptions };
+const Print = struct { w: *std.Io.Writer, options: bulg.Ast.PrintOptions };
 
 fn parseFile(gpa: std.mem.Allocator, io: std.Io, path: []const u8, err: *std.Io.Writer, print: ?Print) !bool {
-    const limits: glint.Limits = .{};
+    const limits: bulg.Limits = .{};
     const text = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(limits.source_bytes)) catch |e| {
         try err.print("{s}: cannot read: {t}\n", .{ path, e });
         return false;
     };
     defer gpa.free(text);
-    var src = try glint.Source.init(gpa, path, text);
+    var src = try bulg.Source.init(gpa, path, text);
     defer src.deinit(gpa);
-    var diags: glint.Diagnostic.List = .{ .limit = limits.diagnostics };
+    var diags: bulg.Diagnostic.List = .{ .limit = limits.diagnostics };
     defer diags.deinit(gpa);
-    var ast = try glint.parse(gpa, @fromBackingInt(@intCast(0)), text, limits, &diags);
+    var ast = try bulg.parse(gpa, @fromBackingInt(@intCast(0)), text, limits, &diags);
     defer ast.deinit(gpa);
     for (diags.items.items) |d| try d.render(err, &src);
     if (diags.dropped > 0) try err.print("{s}: {d} more diagnostics\n", .{ path, diags.dropped });
@@ -112,7 +112,7 @@ fn parseFile(gpa: std.mem.Allocator, io: std.Io, path: []const u8, err: *std.Io.
 }
 
 fn check(gpa: std.mem.Allocator, io: std.Io, files: []const [:0]const u8, out: *std.Io.Writer, err: *std.Io.Writer) !u8 {
-    var s: glint.Session = .init(gpa, .{});
+    var s: bulg.Session = .init(gpa, .{});
     defer s.deinit();
     if (!try load(gpa, io, &s, files, err)) return 1;
     try s.analyze();
@@ -136,7 +136,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, files: []const [:0]const u8, out: *
     return if (s.errorCount() == 0) 0 else 1;
 }
 
-fn load(gpa: std.mem.Allocator, io: std.Io, s: *glint.Session, files: []const [:0]const u8, err: *std.Io.Writer) !bool {
+fn load(gpa: std.mem.Allocator, io: std.Io, s: *bulg.Session, files: []const [:0]const u8, err: *std.Io.Writer) !bool {
     for (files) |path| {
         const text = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(s.limits.source_bytes)) catch |e| {
             try err.print("{s}: cannot read: {t}\n", .{ path, e });
@@ -149,14 +149,14 @@ fn load(gpa: std.mem.Allocator, io: std.Io, s: *glint.Session, files: []const [:
 }
 
 fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std.Io.Writer, err: *std.Io.Writer) !u8 {
-    var dialect: glint.glsl.Dialect = .glsl330;
+    var dialect: bulg.glsl.Dialect = .glsl330;
     var dir: ?[]const u8 = null;
     var i: usize = 0;
     while (i + 1 < raw.len and std.mem.startsWith(u8, raw[i], "--")) : (i += 2) {
         if (std.mem.eql(u8, raw[i], "--out")) {
             dir = raw[i + 1];
         } else if (std.mem.eql(u8, raw[i], "--dialect")) {
-            dialect = std.meta.stringToEnum(glint.glsl.Dialect, raw[i + 1]) orelse {
+            dialect = std.meta.stringToEnum(bulg.glsl.Dialect, raw[i + 1]) orelse {
                 try err.print("unknown dialect `{s}` (es300, glsl330)\n", .{raw[i + 1]});
                 return 2;
             };
@@ -167,7 +167,7 @@ fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std
         return 2;
     };
     const files = raw[i..];
-    var s: glint.Session = .init(gpa, .{});
+    var s: bulg.Session = .init(gpa, .{});
     defer s.deinit();
     if (!try load(gpa, io, &s, files, err)) return 1;
     try s.analyze();
@@ -182,8 +182,8 @@ fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std
         if (p.is_template) continue;
         programs += 1;
         if (!s.programChecked(p)) continue;
-        for ([_]glint.Ir.Stage{ .vertex, .fragment }) |stage| {
-            var e = try glint.glsl.emit(&s, p, stage, dialect, gpa);
+        for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
+            var e = try bulg.glsl.emit(&s, p, stage, dialect, gpa);
             defer e.deinit(gpa);
             const name = try std.fmt.allocPrint(s.arena(), "{s}.{s}", .{ p.name, if (stage == .vertex) "vert" else "frag" });
             try d.writeFile(io, .{ .sub_path = name, .data = e.text });
@@ -198,7 +198,7 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
     var root: ?[]const u8 = null;
     var out_path: ?[]const u8 = null;
     var dep_path: ?[]const u8 = null;
-    var dialects: std.ArrayList(glint.glsl.Dialect) = .empty;
+    var dialects: std.ArrayList(bulg.glsl.Dialect) = .empty;
     defer dialects.deinit(gpa);
     var i: usize = 0;
     while (i + 1 < raw.len) : (i += 2) {
@@ -210,7 +210,7 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
         } else if (std.mem.eql(u8, raw[i], "--depfile")) {
             dep_path = v;
         } else if (std.mem.eql(u8, raw[i], "--dialect")) {
-            try dialects.append(gpa, std.meta.stringToEnum(glint.glsl.Dialect, v) orelse {
+            try dialects.append(gpa, std.meta.stringToEnum(bulg.glsl.Dialect, v) orelse {
                 try err.print("unknown dialect `{s}` (es300, glsl330)\n", .{v});
                 return 2;
             });
@@ -222,17 +222,17 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
     }
     if (dialects.items.len == 0) try dialects.appendSlice(gpa, &.{ .es300, .glsl330 });
 
-    var s: glint.Session = .init(gpa, .{});
+    var s: bulg.Session = .init(gpa, .{});
     defer s.deinit();
     const a = s.arena();
     var dir = try std.Io.Dir.cwd().openDir(io, root.?, .{ .iterate = true });
     defer dir.close(io);
-    // every .glint file under the root, in a fixed order
+    // every .bulg file under the root, in a fixed order
     var paths: std.ArrayList([]const u8) = .empty;
     var walker = try dir.walk(gpa);
     defer walker.deinit();
     while (try walker.next(io)) |e| {
-        if (e.kind == .file and std.mem.endsWith(u8, e.path, ".glint")) try paths.append(a, try a.dupe(u8, e.path));
+        if (e.kind == .file and std.mem.endsWith(u8, e.path, ".bulg")) try paths.append(a, try a.dupe(u8, e.path));
     }
     std.mem.sort([]const u8, paths.items, {}, struct {
         fn lt(_: void, x: []const u8, y: []const u8) bool {
@@ -250,10 +250,10 @@ fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.
     try s.analyze();
     for (s.diagnostics()) |d| try d.render(err, s.source(d.span.src));
     if (s.errorCount() > 0) {
-        try err.print("glint gen: {d} errors in {s}\n", .{ s.errorCount(), root.? });
+        try err.print("bulg gen: {d} errors in {s}\n", .{ s.errorCount(), root.? });
         return 1;
     }
-    const text = glint.zig_gen.generate(&s, .{ .dialects = dialects.items }, gpa) catch |e| switch (e) {
+    const text = bulg.zig_gen.generate(&s, .{ .dialects = dialects.items }, gpa) catch |e| switch (e) {
         error.NotChecked => unreachable, // no errors
         error.OutOfMemory => return error.OutOfMemory,
     };

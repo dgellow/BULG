@@ -4,7 +4,7 @@
 //!
 //!     var s: Session = .init(gpa, .{});
 //!     defer s.deinit();
-//!     _ = try s.addSource("common.glint", text);
+//!     _ = try s.addSource("common.bulg", text);
 //!     try s.analyze();
 //!     for (s.diagnostics()) |d| ...
 
@@ -55,8 +55,8 @@ pub fn arena(s: *Session) std.mem.Allocator {
     return s.arena_state.allocator();
 }
 
-/// Adds and parses a source. `path` names the module: `art/art_core.glint` is the module
-/// `art/art_core` (a path without `.glint` is the module's name as it is). The text is
+/// Adds and parses a source. `path` names the module: `art/art_core.bulg` is the module
+/// `art/art_core` (a path without `.bulg` is the module's name as it is). The text is
 /// copied.
 pub fn addSource(s: *Session, path: []const u8, text: []const u8) Error!Source.Id {
     std.debug.assert(!s.analyzed);
@@ -90,7 +90,7 @@ pub fn source(s: *const Session, id: Source.Id) *const Source {
 
 /// The module name of a source path.
 pub fn moduleName(path: []const u8) []const u8 {
-    return if (std.mem.endsWith(u8, path, ".glint")) path[0 .. path.len - ".glint".len] else path;
+    return if (std.mem.endsWith(u8, path, ".bulg")) path[0 .. path.len - ".bulg".len] else path;
 }
 
 /// The module named `name`, if there is one.

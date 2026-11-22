@@ -1,4 +1,4 @@
-//! Glint: a small shading language and its compiler, in Zig, for programs that want one
+//! BULG: a small shading language and its compiler, in Zig, for programs that want one
 //! shader source for Metal, WebGPU and OpenGL ES / WebGL 2. See README.md.
 //!
 //! v0.1 is the front end: the lexer, the parser and its printer, the checker and the typed

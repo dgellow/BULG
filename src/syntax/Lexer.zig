@@ -13,7 +13,7 @@ const Tag = Token.Tag;
 pub const Error = error{OutOfMemory};
 
 const preprocessor_hint =
-    "Glint has no preprocessor: `alias NAME = expression;` for a value, `const` for a " ++
+    "BULG has no preprocessor: `alias NAME = expression;` for a value, `const` for a " ++
     "constant, `spec bool FLAG = false;` and `if (FLAG)` for a variant, `import \"file\";` " ++
     "for another file";
 
@@ -98,7 +98,7 @@ fn next(lx: *Lexer) Error!Token {
             while (lx.i < lx.text.len and lx.text[lx.i] != '\n') lx.i += 1;
             var end = start + 1;
             while (end < lx.i and isIdentChar(lx.text[end])) end += 1;
-            try lx.report(.preprocessor_directive, start, end, "Glint has no preprocessor directives", preprocessor_hint);
+            try lx.report(.preprocessor_directive, start, end, "BULG has no preprocessor directives", preprocessor_hint);
             continue;
         }
         if (lx.punctuation()) |t| return t;
@@ -274,7 +274,7 @@ test "strings: an import path, and one that never ends" {
     try testing.expectEqual(@as(usize, 6), l.tokens.len);
 }
 
-test "Glint's declarations are keywords; GLSL type names are not" {
+test "BULG's declarations are keywords; GLSL type names are not" {
     try expectTags("import alias uniform block param spec extern program template link vec3 half", &.{ .kw_import, .kw_alias, .kw_uniform, .kw_block, .kw_param, .kw_spec, .kw_extern, .kw_program, .kw_template, .kw_link, .identifier, .identifier, .eof });
 }
 
@@ -323,7 +323,7 @@ test "spans map to lines and columns" {
     const text = "float a;\n  vec3 b = c;\n";
     var l = try lex(text);
     defer l.deinit();
-    var src = try Source.init(testing.allocator, "t.glint", text);
+    var src = try Source.init(testing.allocator, "t.bulg", text);
     defer src.deinit(testing.allocator);
     // `b` is token 5: float a ; vec3 b
     const b = l.tokens[4];

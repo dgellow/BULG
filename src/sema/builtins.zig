@@ -1,6 +1,6 @@
 //! The built-in functions and variables. Functions are written once with generic types
 //! (`genType`), the way the GLSL specification lists them, and expanded at compile time
-//! into concrete overloads: Glint has no implicit conversions, so resolving a call is
+//! into concrete overloads: BULG has no implicit conversions, so resolving a call is
 //! finding the overload whose parameters are exactly the argument types.
 
 const std = @import("std");

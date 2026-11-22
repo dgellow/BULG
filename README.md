@@ -1,12 +1,13 @@
-# Glint
+# BULG
 
-A small shading language and its compiler, written in Zig: one shader source for Metal
-(MSL), WebGPU (WGSL) and OpenGL ES 3.0 / WebGL 2 (GLSL ES 3.00), with reflection that
-generates the host's uniform structs, and a CPU interpreter as a reference. It is built for
-programs that render mostly with fragment shaders (generative visuals, post-processing
-chains) and want to tweak them live, on the device.
+The Backend-Unified Language for Graphics: a small shading language and its compiler,
+written in Zig. One shader source for Metal (MSL), WebGPU (WGSL) and OpenGL ES 3.0 /
+WebGL 2 (GLSL ES 3.00), with reflection that generates the host's uniform structs, and a
+CPU interpreter as a reference. It is built for programs that render mostly with fragment
+shaders (generative visuals, post-processing chains) and want to tweak them live, on the
+device.
 
-Glint is a library first: the compiler runs at build time (a build step turns a shader
+BULG is a library first: the compiler runs at build time (a build step turns a shader
 tree into a generated Zig module) and, when a host wants live editing, inside the app, on
 any target including `wasm32-freestanding`. It never calls a GPU API: it describes, the
 host executes.
@@ -45,31 +46,31 @@ program template world { vertex "fullscreen"; fragment "world_main"; }
 program julia_bloom : world;
 ```
 
-`param` metadata is opaque to Glint beyond a small core (`range`, `step`, `label`,
+`param` metadata is opaque to BULG beyond a small core (`range`, `step`, `label`,
 `group`, `unit`, `color`, `tiers`): a host gives its own keys meaning, and can pass a
 schema so that a misspelt key is an error.
 
 ## Using it
 
 ```
-zig build          # the glint command, in zig-out/bin
+zig build          # the bulg command, in zig-out/bin
 zig build test     # unit tests
 zig build check    # formatting, tests, the golden texts, the freestanding self-test
                    # under node, an iOS compile, the command
 zig build check-gpu      # the golden ES 3.00 texts linked in Chromium's WebGL 2 (node,
                          # Playwright)
 zig build update-golden  # record the emitters' texts as the golden ones
-zig-out/bin/glint parse FILE...   # diagnostics, and how many files parse
-zig-out/bin/glint check FILE...   # the files as one session's modules: diagnostics, and
+zig-out/bin/bulg parse FILE...   # diagnostics, and how many files parse
+zig-out/bin/bulg check FILE...   # the files as one session's modules: diagnostics, and
                                   # how many modules check and programs link
-zig-out/bin/glint emit --dialect es300 --out DIR FILE...   # every program's stages
-zig-out/bin/glint print FILE      # the syntax tree as canonical text (no comments)
-zig-out/bin/glint print --shape FILE   # every operand in parentheses
+zig-out/bin/bulg emit --dialect es300 --out DIR FILE...   # every program's stages
+zig-out/bin/bulg print FILE      # the syntax tree as canonical text (no comments)
+zig-out/bin/bulg print --shape FILE   # every operand in parentheses
 ```
 
-As a dependency: `.glint = .{ .path = "lib/glint" }` (or a URL and hash). Then either
-`@import("glint").addShaderTree(b, dep, .{ .root = b.path("shaders") })` for a generated
-module of shaders, or `dep.module("glint")` for the library (`docs/embedding.md`).
+As a dependency: `.bulg = .{ .path = "lib/bulg" }` (or a URL and hash). Then either
+`@import("bulg").addShaderTree(b, dep, .{ .root = b.path("shaders") })` for a generated
+module of shaders, or `dep.module("bulg")` for the library (`docs/embedding.md`).
 
 ## Rules the code keeps
 

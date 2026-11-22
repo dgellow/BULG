@@ -165,7 +165,7 @@ const prec_ternary = 1; // below every binary operator, above assignment
 const prec_prefix = 13; // above the tightest binary operator (11 + 1)
 const prec_postfix = 14;
 
-/// The module as canonical Glint text: one declaration or statement per line, four-space
+/// The module as canonical BULG text: one declaration or statement per line, four-space
 /// indents, spaces around binary operators, parentheses only where precedence needs them,
 /// literals as written. Printing what this prints gives the same text again.
 pub fn print(a: *const Ast, w: *std.Io.Writer) std.Io.Writer.Error!void {

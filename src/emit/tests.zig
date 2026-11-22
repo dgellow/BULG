@@ -28,9 +28,9 @@ fn expectStage(files: []const File, program: []const u8, stage: @import("../ir/I
 }
 
 const world = [_]File{
-    .{ "frame.glint", "uniform block Frame { vec4 uRes4; float uTime; };\nalias uRes = (uRes4.xy);\n" },
+    .{ "frame.bulg", "uniform block Frame { vec4 uRes4; float uTime; };\nalias uRes = (uRes4.xy);\n" },
     .{
-        "fullscreen.glint",
+        "fullscreen.bulg",
         \\out vec2 vUv;
         \\void main(){
         \\  vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
@@ -39,7 +39,7 @@ const world = [_]File{
         \\}
     },
     .{
-        "world_main.glint",
+        "world_main.bulg",
         \\import "frame";
         \\spec bool FADE = false;
         \\spec int STEPS = 48;
@@ -56,7 +56,7 @@ const world = [_]File{
         \\program template world { vertex "fullscreen"; fragment "world_main"; }
     },
     .{
-        "reef.glint",
+        "reef.bulg",
         \\import "frame";
         \\float h(float x) { return fract(sin(x) * 43758.5453); }
         \\vec3 scene(vec2 p) { return vec3(p, h(uTime)); }
@@ -143,14 +143,14 @@ test "the line map takes a driver's log back to the sources" {
     defer s.deinit();
     var out = try glsl.emit(&s, s.findProgram("reef").?, .fragment, .glsl330, testing.allocator);
     defer out.deinit(testing.allocator);
-    // the emitted line of `return fract(...)` comes from reef.glint's line 2
+    // the emitted line of `return fract(...)` comes from reef.bulg's line 2
     var line: u32 = 1;
     var it = std.mem.splitScalar(u8, out.text, '\n');
     const at = while (it.next()) |l| : (line += 1) {
         if (std.mem.indexOf(u8, l, "return fract") != null) break line;
     } else unreachable;
     const entry = out.lookup(at).?;
-    try testing.expectEqualStrings("reef.glint", s.source(entry.src).path);
+    try testing.expectEqualStrings("reef.bulg", s.source(entry.src).path);
     try testing.expectEqual(@as(u32, 2), entry.src_line);
 
     // Mesa writes `0:LINE(COL)`, ANGLE `0:LINE:`, others `0(LINE)`
@@ -159,14 +159,14 @@ test "the line map takes a driver's log back to the sources" {
     var mapped: std.Io.Writer.Allocating = .init(testing.allocator);
     defer mapped.deinit();
     try glsl.mapLog(&s, &out, log, &mapped.writer);
-    try testing.expectEqualStrings("reef.glint:2(12): error: x\nERROR: reef.glint:2: y\nreef.glint:2 : z\nversion 330 at 10:20\n", mapped.written());
+    try testing.expectEqualStrings("reef.bulg:2(12): error: x\nERROR: reef.bulg:2: y\nreef.bulg:2 : z\nversion 330 at 10:20\n", mapped.written());
 }
 
 test "a stage whose modules have errors is not emitted" {
     var s: Session = .init(testing.allocator, .{});
     defer s.deinit();
-    _ = try s.addSource("v.glint", "void main() { gl_Position = vec4(1.); }");
-    _ = try s.addSource("f.glint", "out vec4 c; void main() { c = 1; } program p { vertex \"v\"; fragment \"f\"; }");
+    _ = try s.addSource("v.bulg", "void main() { gl_Position = vec4(1.); }");
+    _ = try s.addSource("f.bulg", "out vec4 c; void main() { c = 1; } program p { vertex \"v\"; fragment \"f\"; }");
     try s.analyze();
     try testing.expect(s.errorCount() > 0);
     try testing.expectError(error.NotChecked, glsl.emit(&s, s.findProgram("p").?, .fragment, .es300, testing.allocator));
@@ -187,7 +187,7 @@ test "emitting runs out of memory cleanly" {
 }
 
 test "constant vectors and matrices, component by component" {
-    var s = try session(&.{.{ "c.glint", "const vec3 A = vec3(1., vec2(2, 3)); const mat2 M = mat2(2.); const vec4 B = -vec4(A, 4.); const ivec2 I = ivec2(vec2(1.5, -2.5));" }});
+    var s = try session(&.{.{ "c.bulg", "const vec3 A = vec3(1., vec2(2, 3)); const mat2 M = mat2(2.); const vec4 B = -vec4(A, 4.); const ivec2 I = ivec2(vec2(1.5, -2.5));" }});
     defer s.deinit();
     const eval = @import("../ir/eval.zig");
     var buf: [16]@import("../ir/Ir.zig").Const = undefined;

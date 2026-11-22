@@ -107,7 +107,7 @@ fn isKeyword(t: Tag) bool {
     return std.mem.startsWith(u8, @tagName(t), "kw_");
 }
 
-const keyword_hint = "Glint's own declarations (`import`, `alias`, `block`, `param`, `spec`, " ++
+const keyword_hint = "BULG's own declarations (`import`, `alias`, `block`, `param`, `spec`, " ++
     "`extern`, `program`, `template`, `link`) are keywords: rename the variable";
 
 fn expectName(p: *Parser) ParseError!u32 {
@@ -293,7 +293,7 @@ fn item(p: *Parser) ParseError!Index {
         },
         .kw_program => return p.program(),
         .kw_precision => {
-            try p.report(.precision_statement, p.i, "Glint has no precision statements", "precision is chosen for each target by the emitter; remove the line");
+            try p.report(.precision_statement, p.i, "BULG has no precision statements", "precision is chosen for each target by the emitter; remove the line");
             p.syncStatement();
             return .none;
         },
@@ -408,7 +408,7 @@ fn declaration(p: *Parser, ctx: DeclContext) ParseError!Index {
         _ = try p.expect(.l_paren);
         const key = try p.expectName();
         if (!std.mem.eql(u8, p.text_(key), "location")) {
-            try p.report(.unknown_layout, key, "unknown layout qualifier", "Glint knows `layout(location = n)`");
+            try p.report(.unknown_layout, key, "unknown layout qualifier", "BULG knows `layout(location = n)`");
             return error.Syntax;
         }
         _ = try p.expect(.equal);
@@ -660,7 +660,7 @@ fn statement(p: *Parser) ParseError!Index {
         },
         .kw_while, .kw_do, .kw_switch => return p.unsupported(),
         .kw_precision => {
-            try p.report(.precision_statement, t, "Glint has no precision statements", "precision is chosen for each target by the emitter; remove the line");
+            try p.report(.precision_statement, t, "BULG has no precision statements", "precision is chosen for each target by the emitter; remove the line");
             return error.Syntax;
         },
         else => {},
@@ -677,9 +677,9 @@ fn unsupported(p: *Parser) ParseError!Index {
     const t = p.i;
     const k = p.tag();
     try p.report(.unsupported_statement, t, switch (k) {
-        .kw_while => "`while` is not in Glint v0",
-        .kw_do => "`do` is not in Glint v0",
-        else => "`switch` is not in Glint v0",
+        .kw_while => "`while` is not in BULG v0",
+        .kw_do => "`do` is not in BULG v0",
+        else => "`switch` is not in BULG v0",
     }, switch (k) {
         .kw_switch => "use `if` / `else if`",
         else => "use a counted loop, `for (int i = 0; i < N; i++)`, with `break`",
@@ -1100,7 +1100,7 @@ test "a keyword used as a name says so" {
     }
 }
 
-test "GLSL forms Glint leaves out are named" {
+test "GLSL forms BULG leaves out are named" {
     try expectCodes("void f() { while (x < 1.) { x += 1.; } y = 2.; }", &.{.unsupported_statement});
     try expectCodes("void f() { do { x += 1.; } while (x < 1.); }", &.{.unsupported_statement});
     try expectCodes("void f() { switch (k) { case 1: break; } y = 1; }", &.{.unsupported_statement});

@@ -1,16 +1,16 @@
-# Using Glint
+# Using BULG
 
 There are three ways in. Each uses the one before it.
 
 ## At build time: `addShaderTree`
 
-A directory of `.glint` files becomes a Zig module. `examples/hello` does this from start
+A directory of `.bulg` files becomes a Zig module. `examples/hello` does this from start
 to finish.
 
 ```zig
-// build.zig.zon: .dependencies = .{ .glint = .{ .path = "lib/glint" } }
-const glint_dep = b.dependency("glint", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
-const shaders = @import("glint").addShaderTree(b, glint_dep, .{
+// build.zig.zon: .dependencies = .{ .bulg = .{ .path = "lib/bulg" } }
+const bulg_dep = b.dependency("bulg", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
+const shaders = @import("bulg").addShaderTree(b, bulg_dep, .{
     .root = b.path("shaders"),
     .dialects = &.{.es300}, // the texts this build needs
 });
@@ -44,19 +44,19 @@ fails the build, with the diagnostics.
 ## As a library: `Session`
 
 ```zig
-const glint = @import("glint");
-var s: glint.Session = .init(gpa, .{});
+const bulg = @import("bulg");
+var s: bulg.Session = .init(gpa, .{});
 defer s.deinit();
-_ = try s.addSource("common.glint", text);   // the path names the module
+_ = try s.addSource("common.bulg", text);   // the path names the module
 try s.analyze();
 for (s.diagnostics()) |d| try d.render(w, s.source(d.span.src));
 const p = s.findProgram("reef").?;
 if (s.programChecked(p)) {
-    var text = try glint.glsl.emit(&s, p, .fragment, .es300, gpa);
+    var text = try bulg.glsl.emit(&s, p, .fragment, .es300, gpa);
     defer text.deinit(gpa);
     // a driver's log, back to the sources:
-    try glint.glsl.mapLog(&s, &text, driver_log, w);
-    const r = try glint.reflect.reflect(&s, p, arena);
+    try bulg.glsl.mapLog(&s, &text, driver_log, w);
+    const r = try bulg.reflect.reflect(&s, p, arena);
 }
 ```
 
@@ -68,15 +68,15 @@ if (s.programChecked(p)) {
 - Bounds on the input are in `Limits`. Past one, the input gets a diagnostic, never a
   crash.
 
-## From the command line: `glint`
+## From the command line: `bulg`
 
 ```
-glint parse FILE...                  diagnostics, and how many files parse
-glint check FILE...                  the files as one session: how many modules check
+bulg parse FILE...                  diagnostics, and how many files parse
+bulg check FILE...                  the files as one session: how many modules check
                                      and programs link
-glint emit --dialect es300 --out DIR FILE...   DIR/NAME.vert and DIR/NAME.frag
-glint gen --root DIR --out FILE.zig  what addShaderTree runs
-glint reflect FILE...                reflection as JSON (glint.reflection/1, see
+bulg emit --dialect es300 --out DIR FILE...   DIR/NAME.vert and DIR/NAME.frag
+bulg gen --root DIR --out FILE.zig  what addShaderTree runs
+bulg reflect FILE...                reflection as JSON (bulg.reflection/1, see
                                      src/reflect/json.zig)
-glint print [--shape] FILE           the syntax tree as canonical text
+bulg print [--shape] FILE           the syntax tree as canonical text
 ```

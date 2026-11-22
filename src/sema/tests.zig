@@ -35,11 +35,11 @@ fn expectCodes(files: []const File, codes: []const Diagnostic.Code) !void {
 }
 
 fn ok(text: []const u8) !void {
-    return expectCodes(&.{.{ "m.glint", text }}, &.{});
+    return expectCodes(&.{.{ "m.bulg", text }}, &.{});
 }
 
 fn bad(text: []const u8, codes: []const Diagnostic.Code) !void {
-    return expectCodes(&.{.{ "m.glint", text }}, codes);
+    return expectCodes(&.{.{ "m.bulg", text }}, codes);
 }
 
 test "types, operators and constructors" {
@@ -163,21 +163,21 @@ test "cycles" {
 
 test "aliases, imports, uniform blocks" {
     try expectCodes(&.{
-        .{ "frame.glint", "uniform block Frame { vec4 uRes4; float uTime; mat4 uHyp[2]; }; alias uRes = uRes4.xy;" },
-        .{ "common.glint", "import \"frame\"; float aspect() { return uRes.x / uRes.y; } float hidden() { return 1.; }" },
-        .{ "w.glint", "import \"common\" : aspect; import \"frame\"; void main() { float a = aspect() * uTime; }" },
+        .{ "frame.bulg", "uniform block Frame { vec4 uRes4; float uTime; mat4 uHyp[2]; }; alias uRes = uRes4.xy;" },
+        .{ "common.bulg", "import \"frame\"; float aspect() { return uRes.x / uRes.y; } float hidden() { return 1.; }" },
+        .{ "w.bulg", "import \"common\" : aspect; import \"frame\"; void main() { float a = aspect() * uTime; }" },
     }, &.{});
     try expectCodes(&.{
-        .{ "a.glint", "float hidden() { return 1.; }" },
-        .{ "w.glint", "import \"a\" : other; import \"nope\"; void f() { hidden(); }" },
+        .{ "a.bulg", "float hidden() { return 1.; }" },
+        .{ "w.bulg", "import \"a\" : other; import \"nope\"; void f() { hidden(); }" },
     }, &.{ .unknown_name, .unknown_module, .unknown_name });
     try expectCodes(&.{
-        .{ "a.glint", "const float K = 1.;" },
-        .{ "b.glint", "const float K = 2.;" },
-        .{ "w.glint", "import \"a\"; import \"b\"; float k = K;" },
+        .{ "a.bulg", "const float K = 1.;" },
+        .{ "b.bulg", "const float K = 2.;" },
+        .{ "w.bulg", "import \"a\"; import \"b\"; float k = K;" },
     }, &.{.ambiguous_name});
     // std140 offsets
-    var s = try analyze(&.{.{ "f.glint", "uniform block F { float a; vec3 b; float c; mat3 m; vec2 d; };" }});
+    var s = try analyze(&.{.{ "f.bulg", "uniform block F { float a; vec3 b; float c; mat3 m; vec2 d; };" }});
     defer s.deinit();
     try testing.expectEqual(@as(usize, 0), s.diagnostics().len);
     const b = s.modules[0].blocks[0];
@@ -187,10 +187,10 @@ test "aliases, imports, uniform blocks" {
 
 test "programs: stages, externs and spec values" {
     const files = [_]File{
-        .{ "fullscreen.glint", "void main() { gl_Position = vec4(0., 0., 0., 1.); }" },
-        .{ "world_main.glint", "spec bool FADE = false; extern vec3 scene(vec2 p); out vec4 color; void main() { color = vec4(scene(gl_FragCoord.xy), 1.); if (FADE) discard; }" },
-        .{ "worlds/reef.glint", "vec3 scene(vec2 p) { return vec3(p, 0.); } program reef : world { spec FADE = true; }" },
-        .{ "programs.glint", "program template world { vertex \"fullscreen\"; fragment \"world_main\"; }" },
+        .{ "fullscreen.bulg", "void main() { gl_Position = vec4(0., 0., 0., 1.); }" },
+        .{ "world_main.bulg", "spec bool FADE = false; extern vec3 scene(vec2 p); out vec4 color; void main() { color = vec4(scene(gl_FragCoord.xy), 1.); if (FADE) discard; }" },
+        .{ "worlds/reef.bulg", "vec3 scene(vec2 p) { return vec3(p, 0.); } program reef : world { spec FADE = true; }" },
+        .{ "programs.bulg", "program template world { vertex \"fullscreen\"; fragment \"world_main\"; }" },
     };
     var s = try analyze(&files);
     defer s.deinit();
@@ -205,12 +205,12 @@ test "programs: stages, externs and spec values" {
 
     // an unfilled extern, a vertex stage that discards, an unknown spec
     try expectCodes(&.{
-        .{ "v.glint", "void main() { discard; }" },
-        .{ "f.glint", "extern vec3 scene(vec2 p); void main() { vec3 c = scene(vec2(0.)); }" },
-        .{ "p.glint", "program p { vertex \"v\"; fragment \"f\"; spec NOPE = 1; }" },
+        .{ "v.bulg", "void main() { discard; }" },
+        .{ "f.bulg", "extern vec3 scene(vec2 p); void main() { vec3 c = scene(vec2(0.)); }" },
+        .{ "p.bulg", "program p { vertex \"v\"; fragment \"f\"; spec NOPE = 1; }" },
     }, &.{ .wrong_stage, .unresolved_extern, .unknown_spec });
-    try expectCodes(&.{.{ "p.glint", "program a : b; program b : a;" }}, &.{.bad_program});
-    try expectCodes(&.{.{ "p.glint", "void f() {} program p { vertex \"p\"; fragment \"p\"; }" }}, &.{ .missing_main, .missing_main });
+    try expectCodes(&.{.{ "p.bulg", "program a : b; program b : a;" }}, &.{.bad_program});
+    try expectCodes(&.{.{ "p.bulg", "void f() {} program p { vertex \"p\"; fragment \"p\"; }" }}, &.{ .missing_main, .missing_main });
 }
 
 test "out of memory anywhere is reported, never leaked" {
@@ -218,8 +218,8 @@ test "out of memory anywhere is reported, never leaked" {
         fn run(gpa: std.mem.Allocator) !void {
             var s: Session = .init(gpa, .{});
             defer s.deinit();
-            _ = try s.addSource("a.glint", "struct H { float d; }; uniform block F { vec4 r; }; alias R = r.xy; float f(vec2 p) { H h = H(p.x); return h.d + R.x; }");
-            _ = try s.addSource("b.glint", "import \"a\"; void main() { float x = f(vec2(1.)); } program p { vertex \"b\"; fragment \"b\"; }");
+            _ = try s.addSource("a.bulg", "struct H { float d; }; uniform block F { vec4 r; }; alias R = r.xy; float f(vec2 p) { H h = H(p.x); return h.d + R.x; }");
+            _ = try s.addSource("b.bulg", "import \"a\"; void main() { float x = f(vec2(1.)); } program p { vertex \"b\"; fragment \"b\"; }");
             try s.analyze();
         }
     }.run, .{});

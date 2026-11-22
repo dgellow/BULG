@@ -4,7 +4,7 @@
 //!   golden ROOT [--update]
 
 const std = @import("std");
-const glint = @import("glint");
+const bulg = @import("bulg");
 
 pub fn main(init: std.process.Init) !u8 {
     const gpa = init.gpa;
@@ -32,10 +32,10 @@ pub fn main(init: std.process.Init) !u8 {
         defer dir.close(io);
         var files: std.ArrayList([]const u8) = .empty;
         var fit = dir.iterate();
-        while (try fit.next(io)) |e| if (e.kind == .file and std.mem.endsWith(u8, e.name, ".glint")) try files.append(arena, try arena.dupe(u8, e.name));
+        while (try fit.next(io)) |e| if (e.kind == .file and std.mem.endsWith(u8, e.name, ".bulg")) try files.append(arena, try arena.dupe(u8, e.name));
         std.mem.sort([]const u8, files.items, {}, lessThan);
 
-        var s: glint.Session = .init(gpa, .{});
+        var s: bulg.Session = .init(gpa, .{});
         defer s.deinit();
         for (files.items) |f| {
             const text = try dir.readFileAlloc(io, f, gpa, .limited(1 << 20));
@@ -53,8 +53,8 @@ pub fn main(init: std.process.Init) !u8 {
         defer expected.close(io);
         for (s.programs) |*p| {
             if (p.is_template) continue;
-            for ([_]glint.glsl.Dialect{ .es300, .glsl330 }) |dialect| for ([_]glint.Ir.Stage{ .vertex, .fragment }) |stage| {
-                var e = try glint.glsl.emit(&s, p, stage, dialect, gpa);
+            for ([_]bulg.glsl.Dialect{ .es300, .glsl330 }) |dialect| for ([_]bulg.Ir.Stage{ .vertex, .fragment }) |stage| {
+                var e = try bulg.glsl.emit(&s, p, stage, dialect, gpa);
                 defer e.deinit(gpa);
                 const file = try std.fmt.allocPrint(arena, "{s}.{t}.{s}", .{ p.name, dialect, if (stage == .vertex) "vert" else "frag" });
                 texts += 1;

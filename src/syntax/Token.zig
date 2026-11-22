@@ -13,7 +13,7 @@ pub const Tag = enum(u8) {
     /// `"art/art_core"`: a path or a name in metadata; no escapes, on one line
     string_literal,
 
-    // keywords: Glint's own declarations
+    // keywords: BULG's own declarations
     kw_import,
     kw_alias,
     kw_uniform,
@@ -41,7 +41,7 @@ pub const Tag = enum(u8) {
     kw_discard,
     kw_true,
     kw_false,
-    // GLSL keywords Glint leaves out of v0: lexed as keywords, so that using one gives a
+    // GLSL keywords BULG leaves out of v0: lexed as keywords, so that using one gives a
     // diagnostic that names it rather than a confusing parse error
     kw_while,
     kw_do,

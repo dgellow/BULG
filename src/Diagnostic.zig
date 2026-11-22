@@ -10,13 +10,13 @@ pub const Severity = enum { @"error", warning };
 /// at the end of their range. E0001-E0099: lexing; E0100-E0199: parsing; E0200-E0299:
 /// checking and linking.
 pub const Code = enum(u16) {
-    /// `#define`, `#ifdef` and the like: Glint has no preprocessor
+    /// `#define`, `#ifdef` and the like: BULG has no preprocessor
     preprocessor_directive = 1,
     /// a byte that starts no token
     unexpected_character = 2,
     /// `/*` without `*/`
     unterminated_comment = 3,
-    /// a number Glint cannot read (`1e`, `0x`, digits after a suffix, ...)
+    /// a number BULG cannot read (`1e`, `0x`, digits after a suffix, ...)
     malformed_number = 4,
     /// a source larger than `Limits.source_bytes`
     source_too_large = 5,
@@ -26,7 +26,7 @@ pub const Code = enum(u16) {
     unterminated_string = 7,
     /// a token other than the one the grammar needs here
     expected_token = 100,
-    /// `while`, `do` and `switch`: not in Glint v0
+    /// `while`, `do` and `switch`: not in BULG v0
     unsupported_statement = 101,
     /// `precision ...;`: precision is the target's business
     precision_statement = 102,
@@ -46,7 +46,7 @@ pub const Code = enum(u16) {
     unknown_type = 201,
     /// a name declared twice in one scope
     duplicate_declaration = 202,
-    /// a value of one type where another is needed (Glint converts nothing implicitly)
+    /// a value of one type where another is needed (BULG converts nothing implicitly)
     type_mismatch = 203,
     /// a call no overload of the function takes
     no_overload = 204,
@@ -173,20 +173,20 @@ pub fn render(d: Diagnostic, w: *std.Io.Writer, src: *const Source) std.Io.Write
 
 test "a diagnostic renders with its place, the line and a caret" {
     const gpa = std.testing.allocator;
-    var src = try Source.init(gpa, "w.glint", "float a;\n#define X 1\n");
+    var src = try Source.init(gpa, "w.bulg", "float a;\n#define X 1\n");
     defer src.deinit(gpa);
     const d: Diagnostic = .{
         .severity = .@"error",
         .code = .preprocessor_directive,
         .span = .{ .src = @fromBackingInt(@intCast(0)), .start = 9, .end = 16 },
-        .message = "Glint has no preprocessor",
+        .message = "BULG has no preprocessor",
         .hint = "use `alias` or `const`",
     };
     var buf: [256]u8 = undefined;
     var w: std.Io.Writer = .fixed(&buf);
     try d.render(&w, &src);
     try std.testing.expectEqualStrings(
-        \\w.glint:2:1: error[E0001]: Glint has no preprocessor
+        \\w.bulg:2:1: error[E0001]: BULG has no preprocessor
         \\    #define X 1
         \\    ^^^^^^^
         \\    hint: use `alias` or `const`

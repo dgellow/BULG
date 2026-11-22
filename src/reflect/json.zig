@@ -1,8 +1,8 @@
 //! Reflection as JSON, for hosts that are not Zig and for tools. The format is versioned:
-//! `"format": "glint.reflection/1"`. A change that a reader could trip on (a field
+//! `"format": "bulg.reflection/1"`. A change that a reader could trip on (a field
 //! renamed or removed, a meaning changed) takes the next number; new fields do not.
 //!
-//!     { "format": "glint.reflection/1", "programs": [ {
+//!     { "format": "bulg.reflection/1", "programs": [ {
 //!         "name": "reef",
 //!         "blocks": [ { "name", "module", "size", "stages": ["fragment"],
 //!                       "members": [ { "name", "type", "offset", "size", "default": [1, 0] | null } ] } ],
@@ -22,7 +22,7 @@ const Session = @import("../Session.zig");
 const Ir = @import("../ir/Ir.zig");
 const R = @import("Reflection.zig");
 
-pub const format = "glint.reflection/1";
+pub const format = "bulg.reflection/1";
 
 pub const Error = error{ OutOfMemory, NotChecked };
 

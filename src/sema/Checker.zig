@@ -350,7 +350,7 @@ fn arrayOf(c: *Checker, mi: u32, elem: Type, len_node: Ast.Index) Error!Type {
     const e = try c.expr(&x, len_node);
     if (elem == .invalid or m.expr(e).type == .invalid) return .invalid;
     if (c.s.pool.arrayOf(elem) != null) {
-        try c.report(mi, m.node(len_node).tok, .bad_array_size, "arrays of arrays are not in Glint v0", .{});
+        try c.report(mi, m.node(len_node).tok, .bad_array_size, "arrays of arrays are not in BULG v0", .{});
         return .invalid;
     }
     const v = c.evalConst(mi, e);
@@ -1038,7 +1038,7 @@ fn literal(c: *Checker, x: *Ctx, tok: u32) Error!ExprId {
         .float_literal => {
             const digits = if (text[text.len - 1] == 'f' or text[text.len - 1] == 'F') text[0 .. text.len - 1] else text;
             const v = std.fmt.parseFloat(f32, digits) catch {
-                try c.report(x.m, tok, .bad_operands, "`{s}` is not a number Glint can read", .{text});
+                try c.report(x.m, tok, .bad_operands, "`{s}` is not a number BULG can read", .{text});
                 return c.invalid(x.m, tok);
             };
             return c.addExpr(x.m, .float, tok, .{ .literal = .{ .float = v } });
@@ -1643,7 +1643,7 @@ fn isConst(c: *Checker, mi: u32, e: ExprId) bool {
     };
 }
 
-/// The value of a scalar constant expression, when it is one Glint can compute now (spec
+/// The value of a scalar constant expression, when it is one BULG can compute now (spec
 /// constants are not: their value is the variant's).
 pub fn evalConst(c: *Checker, mi: u32, e: ExprId) ?Ir.Const {
     const m = &c.mods[mi];

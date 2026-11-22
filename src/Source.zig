@@ -1,4 +1,4 @@
-//! A source file the session was given, and positions in it. Glint never reads files
+//! A source file the session was given, and positions in it. BULG never reads files
 //! itself (that is `fs.zig`, for the CLI and the build): sources arrive as text.
 
 const std = @import("std");
@@ -70,7 +70,7 @@ pub fn slice(s: *const Source, span: Span) []const u8 {
 
 test "lines and columns, including the last line without a newline" {
     const gpa = std.testing.allocator;
-    var s = try Source.init(gpa, "a.glint", "ab\n\ncd\r\nef");
+    var s = try Source.init(gpa, "a.bulg", "ab\n\ncd\r\nef");
     defer s.deinit(gpa);
     try std.testing.expectEqual(Location{ .line = 1, .column = 1 }, s.locate(0));
     try std.testing.expectEqual(Location{ .line = 1, .column = 3 }, s.locate(2));

@@ -10,7 +10,7 @@ again after a deliberate change, and the diff is the review.
   reassociated or reordered. Literals are printed as written. Parentheses are added only
   where precedence needs them. A driver therefore compiles the program the author wrote,
   and the GL output draws exactly what the hand-written GLSL drew. (A consumer can prove
-  it: render reference frames with its own GLSL, then with Glint's text in its place,
+  it: render reference frames with its own GLSL, then with BULG's text in its place,
   and compare the hashes.)
 - **Specialisation is the one transformation.**
   - A spec constant takes the variant's value.
@@ -45,7 +45,7 @@ again after a deliberate change, and the diff is the review.
 
 ## GLSL 3.30 (`glsl330`)
 
-- The header is `#version 330 core`. The rest is the ES 3.00 text: Glint's v0 is inside
+- The header is `#version 330 core`. The rest is the ES 3.00 text: BULG's v0 is inside
   what both dialects accept the same way.
 
 ## WGSL and MSL

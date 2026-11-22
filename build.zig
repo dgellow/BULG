@@ -1,6 +1,6 @@
-//! Glint builds and tests on its own: nothing here reaches outside this directory.
+//! BULG builds and tests on its own: nothing here reaches outside this directory.
 //! Packages that depend on it use `addShaderTree` (below).
-//!   zig build         the `glint` command, in zig-out/bin
+//!   zig build         the `bulg` command, in zig-out/bin
 //!   zig build test    unit tests on the host
 //!   zig build check   formatting, unit tests, the golden texts, examples/hello (built
 //!                     with addShaderTree), the freestanding self-test under node, and a
@@ -15,24 +15,24 @@ const std = @import("std");
 pub const Dialect = enum { es300, glsl330 };
 
 pub const ShaderTreeOptions = struct {
-    /// the directory of .glint files (each named by its path in it)
+    /// the directory of .bulg files (each named by its path in it)
     root: std.Build.LazyPath,
     /// the dialects whose texts the module has
     dialects: []const Dialect = &.{ .es300, .glsl330 },
 };
 
 /// A shader tree as a Zig module: every program's texts and reflection (see
-/// src/reflect/zig.zig), made by the `glint` command at build time. The module imports
+/// src/reflect/zig.zig), made by the `bulg` command at build time. The module imports
 /// only `std`, so nothing of the compiler is linked.
 ///
-///     const glint_dep = b.dependency("glint", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
-///     const shaders = @import("glint").addShaderTree(b, glint_dep, .{ .root = b.path("shaders") });
+///     const bulg_dep = b.dependency("bulg", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
+///     const shaders = @import("bulg").addShaderTree(b, bulg_dep, .{ .root = b.path("shaders") });
 ///     exe.root_module.addImport("shaders", shaders);
 ///
 /// The tree is read again at every build (it takes milliseconds), so that a new file is
 /// never missed; the module is recompiled only when its text changes.
-pub fn addShaderTree(b: *std.Build, glint_dep: *std.Build.Dependency, options: ShaderTreeOptions) *std.Build.Module {
-    const run = b.addRunArtifact(glint_dep.artifact("glint"));
+pub fn addShaderTree(b: *std.Build, bulg_dep: *std.Build.Dependency, options: ShaderTreeOptions) *std.Build.Module {
+    const run = b.addRunArtifact(bulg_dep.artifact("bulg"));
     run.addArgs(&.{ "gen", "--root" });
     run.addDirectoryArg(options.root);
     for (options.dialects) |d| run.addArgs(&.{ "--dialect", @tagName(d) });
@@ -47,37 +47,37 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // the library, for packages that depend on this one
-    const glint = b.addModule("glint", .{
-        .root_source_file = b.path("src/glint.zig"),
+    const bulg = b.addModule("bulg", .{
+        .root_source_file = b.path("src/bulg.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     // the command line tool
     const exe = b.addExecutable(.{
-        .name = "glint",
+        .name = "bulg",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/cli/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "glint", .module = glint }},
+            .imports = &.{.{ .name = "bulg", .module = bulg }},
         }),
     });
     b.installArtifact(exe);
     const run_exe = b.addRunArtifact(exe);
     run_exe.addPassthruArgs();
-    b.step("run", "Run the glint command: zig build run -- parse FILE...").dependOn(&run_exe.step);
+    b.step("run", "Run the bulg command: zig build run -- parse FILE...").dependOn(&run_exe.step);
 
     // the tests get the README too, to check that its example parses
     const test_mod = b.createModule(.{
-        .root_source_file = b.path("src/glint.zig"),
+        .root_source_file = b.path("src/bulg.zig"),
         .target = target,
         .optimize = optimize,
     });
     test_mod.addAnonymousImport("README.md", .{ .root_source_file = b.path("README.md") });
     // a golden tree, for the fixed-buffer test
     for ([_][]const u8{ "frame", "fullscreen", "common", "world_main", "reef" }) |name| {
-        test_mod.addAnonymousImport(b.fmt("golden_world_{s}", .{name}), .{ .root_source_file = b.path(b.fmt("tests/golden/world/{s}.glint", .{name})) });
+        test_mod.addAnonymousImport(b.fmt("golden_world_{s}", .{name}), .{ .root_source_file = b.path(b.fmt("tests/golden/world/{s}.bulg", .{name})) });
     }
     const tests = b.addTest(.{ .root_module = test_mod });
     const run_tests = b.addRunArtifact(tests);
@@ -86,13 +86,13 @@ pub fn build(b: *std.Build) void {
     // the core on a target with no libc, files or threads, run by node
     const wasm_target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding });
     const selftest = b.addExecutable(.{
-        .name = "glint_selftest",
+        .name = "bulg_selftest",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/selftest.zig"),
             .target = wasm_target,
             .optimize = .small,
-            .imports = &.{.{ .name = "glint", .module = b.createModule(.{
-                .root_source_file = b.path("src/glint.zig"),
+            .imports = &.{.{ .name = "bulg", .module = b.createModule(.{
+                .root_source_file = b.path("src/bulg.zig"),
                 .target = wasm_target,
                 .optimize = .small,
             }) }},
@@ -106,9 +106,9 @@ pub fn build(b: *std.Build) void {
 
     // the core compiles for the Apple slices too (no SDK needed: nothing is linked)
     const ios = b.addObject(.{
-        .name = "glint-ios",
+        .name = "bulg-ios",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("src/glint.zig"),
+            .root_source_file = b.path("src/bulg.zig"),
             .target = b.resolveTargetQuery(.{ .cpu_arch = .aarch64, .os_tag = .ios }),
             .optimize = .fast,
         }),
@@ -122,7 +122,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/cli/golden.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "glint", .module = glint }},
+            .imports = &.{.{ .name = "bulg", .module = bulg }},
         }),
     });
     const run_golden = b.addRunArtifact(golden);

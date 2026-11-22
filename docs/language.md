@@ -1,14 +1,14 @@
-# The Glint language, v0
+# The BULG language, v0
 
-Glint is GLSL ES 3.00 in shape and strict in its rules. The preprocessor is replaced by
+BULG is GLSL ES 3.00 in shape and strict in its rules. The preprocessor is replaced by
 declarations (modules, aliases, spec constants, programs). This page is the
 specification. Each rule names the test that holds it: `parser:` tests are in
 `src/syntax/Parser.zig`, `sema:` tests in `src/sema/tests.zig`.
 
 ## Files, modules and names
 
-- A source is a module. Its name is its path, without a final `.glint`:
-  `art/art_core.glint` is `art/art_core`. Paths are relative to the root of the shader
+- A source is a module. Its name is its path, without a final `.bulg`:
+  `art/art_core.bulg` is `art/art_core`. Paths are relative to the root of the shader
   tree, never to the importing file.
 - The order of declarations in a module is free: a function may call one declared after
   it, and a constant may be used before it (sema: names, scopes and declarations).
@@ -21,7 +21,7 @@ specification. Each rule names the test that holds it: `parser:` tests are in
   names, then the built-in variables.
 - Reserved: names starting with `gl_` or containing `__`, the built-in type names, and the
   built-in function names. A module cannot define or overload a built-in function.
-- Glint's own words (`import alias block param spec extern program template link`) are
+- BULG's own words (`import alias block param spec extern program template link`) are
   keywords. Using one as a name says so (parser: a keyword used as a name says so).
 
 ## Types
@@ -35,7 +35,7 @@ specification. Each rule names the test that holds it: `parser:` tests are in
 - Fixed arrays of one dimension, `T[N]` or `T name[N]`. `N` is a positive constant
   integer (sema: constants and array sizes).
 - `void`, only as a return type.
-- Glint converts nothing implicitly: `float x = 1;` is an error, and so are `1. + 1` and
+- BULG converts nothing implicitly: `float x = 1;` is an error, and so are `1. + 1` and
   `sin(1)` (sema: no implicit conversions). Constructors convert: `float(i)`,
   `ivec2(v.xy)`.
 
@@ -61,7 +61,7 @@ specification. Each rule names the test that holds it: `parser:` tests are in
   and `out`.
 - Module-level initialisers are constant expressions (sema: constants and array sizes).
 - Metadata `{ key, key(args) }` is for `param`, `spec` and `uniform`. Its arguments are
-  constants, strings, or bare words that nothing declares (`curve(exp)`). Glint keeps the
+  constants, strings, or bare words that nothing declares (`curve(exp)`). BULG keeps the
   keys and passes them to the host (sema: metadata).
 - A uniform block's members are laid out by std140; reflection gives each member's
   offset (sema: aliases, imports, uniform blocks).
@@ -80,7 +80,7 @@ specification. Each rule names the test that holds it: `parser:` tests are in
 
 - Blocks, declarations, expressions, `if`/`else`, `for`, `return`, `break`, `continue`,
   `discard`.
-- `while`, `do`, `switch` and `precision` are named and refused (parser: GLSL forms Glint
+- `while`, `do`, `switch` and `precision` are named and refused (parser: GLSL forms BULG
   leaves out are named).
 - A function's parameters and the top level of its body are one scope. Each block, each
   `for` and the body of each `if` and `for` opens a scope. A name declared twice in one
@@ -125,7 +125,7 @@ specification. Each rule names the test that holds it: `parser:` tests are in
 
 Literals, `const` and `spec` names, aliases of constant expressions, and constructors,
 operators (not assignments, `++` or `--`), built-in functions without `out` parameters,
-indices, swizzles and fields of constant expressions. Glint computes the value of
+indices, swizzles and fields of constant expressions. BULG computes the value of
 constant scalar integer, float and bool expressions where it needs one: array sizes,
 locations and spec values. `spec` values are not known before the variant, so they cannot
 size an array.

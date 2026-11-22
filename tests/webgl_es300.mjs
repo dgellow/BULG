@@ -1,5 +1,5 @@
 // Compiles and links every GLSL ES 3.00 program under a directory (NAME.vert and NAME.frag,
-// as `glint emit --dialect es300` writes them; files of other dialects are left alone) in
+// as `bulg emit --dialect es300` writes them; files of other dialects are left alone) in
 // Chromium's WebGL 2, which checks them through ANGLE. Prints each failure with the
 // driver's log; exits 1 on any. Needs node and Playwright (with its Chromium).
 //   node tests/webgl_es300.mjs DIR
@@ -54,5 +54,5 @@ const results = await page.evaluate((programs) => {
 }, programs);
 await browser.close();
 for (const r of results) console.log(`${r.name}: ${r.log.trim()}`);
-console.log(`glint es300: ${programs.length - results.length} of ${programs.length} programs compile and link in WebGL 2`);
+console.log(`bulg es300: ${programs.length - results.length} of ${programs.length} programs compile and link in WebGL 2`);
 process.exit(results.length ? 1 : 0);

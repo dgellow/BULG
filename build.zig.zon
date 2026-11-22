@@ -1,7 +1,7 @@
 .{
-    .name = .glint,
+    .name = .bulg,
     .version = "0.1.0",
-    .fingerprint = 0x77d01758bfc7bac0,
+    .fingerprint = 0xf8cf9a7f39cd2737,
     .minimum_zig_version = "0.17.1",
     .dependencies = .{},
     .paths = .{

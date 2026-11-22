@@ -6,9 +6,9 @@ const R = @import("Reflection.zig");
 const testing = std.testing;
 
 const files = [_]struct { []const u8, []const u8 }{
-    .{ "frame.glint", "uniform block Frame { vec4 uRes4 = vec4(1.); vec3 uSun; float uTime; mat3 uRot = mat3(1.); };" },
+    .{ "frame.bulg", "uniform block Frame { vec4 uRes4 = vec4(1.); vec3 uSun; float uTime; mat3 uRot = mat3(1.); };" },
     .{
-        "v.glint",
+        "v.bulg",
         \\layout(location = 0) in vec3 aPos;
         \\layout(location = 1) in vec2 aUv;
         \\in vec4 aUnused;
@@ -19,7 +19,7 @@ const files = [_]struct { []const u8, []const u8 }{
         \\void main() { vKind = gl_InstanceID; vUv = aUv; vOnlyVertex = 1.; gl_Position = vec4(aPos + texture(uHeight, aUv).x, 1.); }
     },
     .{
-        "f.glint",
+        "f.bulg",
         \\import "frame";
         \\spec bool FADE = false { label("Fade") };
         \\spec int STEPS = 48 { tiers(24, 48, 96) };
@@ -156,7 +156,7 @@ test "the JSON is valid, versioned, and has the reflection" {
     const parsed = try std.json.parseFromSlice(std.json.Value, testing.allocator, out.written(), .{});
     defer parsed.deinit();
     const root = parsed.value.object;
-    try testing.expectEqualStrings("glint.reflection/1", root.get("format").?.string);
+    try testing.expectEqualStrings("bulg.reflection/1", root.get("format").?.string);
     const progs = root.get("programs").?.array.items;
     try testing.expectEqual(@as(usize, 2), progs.len);
     const p = progs[0].object;
@@ -179,11 +179,11 @@ test "a tree is checked, emitted and reflected in a fixed buffer" {
     var fba: std.heap.FixedBufferAllocator = .init(buf);
     const gpa = fba.allocator();
     const sources = [_]struct { []const u8, []const u8 }{
-        .{ "frame.glint", @embedFile("golden_world_frame") },
-        .{ "fullscreen.glint", @embedFile("golden_world_fullscreen") },
-        .{ "common.glint", @embedFile("golden_world_common") },
-        .{ "world_main.glint", @embedFile("golden_world_world_main") },
-        .{ "reef.glint", @embedFile("golden_world_reef") },
+        .{ "frame.bulg", @embedFile("golden_world_frame") },
+        .{ "fullscreen.bulg", @embedFile("golden_world_fullscreen") },
+        .{ "common.bulg", @embedFile("golden_world_common") },
+        .{ "world_main.bulg", @embedFile("golden_world_world_main") },
+        .{ "reef.bulg", @embedFile("golden_world_reef") },
     };
     var s: Session = .init(gpa, .{});
     defer s.deinit();

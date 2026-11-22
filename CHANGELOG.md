@@ -5,8 +5,11 @@ the emitters and the API separately.
 
 ## 0.1.0 (unreleased)
 
+The language was called Glint until this release; it is BULG, the Backend-Unified
+Language for Graphics, and its files are `.bulg`.
+
 ### Language
-- Tokens: names, keywords (Glint's `import alias uniform block param spec extern program
+- Tokens: names, keywords (BULG's `import alias uniform block param spec extern program
   template link`, GLSL's statements and qualifiers), integer literals (decimal, hex, `u`),
   float literals (`1.`, `.5`, `1e3`, `f`), strings (one line, no escapes), every GLSL
   operator. `while`, `do`, `switch` and `precision` are keywords so that their use gets a
@@ -22,7 +25,7 @@ the emitters and the API separately.
 - Expressions: GLSL's operators and precedence, `?:`, assignment operators, calls and
   constructors (`float[9](...)`), indexing, fields and swizzles, `++`/`--`. No comma
   operator.
-- Glint's own keywords cannot be names; using one as a name says so.
+- BULG's own keywords cannot be names; using one as a name says so.
 - Checking, as `docs/language.md` specifies it:
   - types: scalars, `half`, vectors, square matrices, `sampler2D`, structs, arrays;
   - GLSL ES 3.00's operators, without implicit conversions;
@@ -49,7 +52,7 @@ the emitters and the API separately.
   functions, what the stage uses). Everything in the session's arena.
 - `types` (the built-in types at fixed indices, interned structs and arrays, std140) and
   `builtins` (every overload, expanded at compile time).
-- The `glint` command: `parse`, `check`, `emit`, `gen`, `reflect` and `print [--shape]`.
+- The `bulg` command: `parse`, `check`, `emit`, `gen`, `reflect` and `print [--shape]`.
 - `Session.stageChecked`, `programChecked`; `Diagnostic.List.errorsIn` (per source, dropped
   ones included).
 - `Source` (line and column of a span), `Diagnostic` (stable codes E0001-E0007, a list with
@@ -65,8 +68,8 @@ the emitters and the API separately.
 - `zig_gen.generate`: a shader tree as one Zig source. It has the texts, the reflection
   as tables, and an `extern struct` per block, checked at compile time. It imports only
   `std`.
-- `reflection_json.write`: the same as JSON, `glint.reflection/1`.
-- `addShaderTree` (build.zig): a directory of `.glint` files as a Zig module, made at
+- `reflection_json.write`: the same as JSON, `bulg.reflection/1`.
+- `addShaderTree` (build.zig): a directory of `.bulg` files as a Zig module, made at
   build time. `examples/hello` uses it, and the check builds and tests it.
 - A fixed-buffer test: the golden world tree is checked, emitted and reflected in
   1 MiB, using about 350 KiB.
