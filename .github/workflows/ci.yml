@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: zig build check
+      # the golden ES 3.00 texts, compiled and linked by ANGLE in headless Chromium
+      - run: npm install --no-save playwright@1.49.1 && npx playwright install --with-deps chromium
+      - run: zig build check-gpu
