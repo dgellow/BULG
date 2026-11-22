@@ -12,7 +12,7 @@ to finish.
 const bulg_dep = b.dependency("bulg", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
 const shaders = @import("bulg").addShaderTree(b, bulg_dep, .{
     .root = b.path("shaders"),
-    .dialects = &.{.es300}, // the texts this build needs
+    .dialects = &.{.es300}, // the texts this build needs (es300, glsl330, msl)
 });
 exe.root_module.addImport("shaders", shaders);
 ```
@@ -27,6 +27,10 @@ each program `p` it has:
   time. It lists the blocks, samplers in slot order, loose uniforms, params (with
   defaults and metadata), spec constants (the variant's value, the default, and
   metadata), vertex inputs, and the files the program was made from.
+- with `msl` among the dialects, `shaders.p.metal.vertex` and `.fragment`: what a Metal
+  host binds. That is each block's buffer index, the `bulg_Params` fields' offsets and
+  strides in Metal's layout and its size, the texture and sampler indices, and the vertex
+  attributes (docs/targets.md, MSL).
 
 Shared by every program:
 
@@ -52,10 +56,12 @@ try s.analyze();
 for (s.diagnostics()) |d| try d.render(w, s.source(d.span.src));
 const p = s.findProgram("reef").?;
 if (s.programChecked(p)) {
-    var text = try bulg.glsl.emit(&s, p, .fragment, .es300, gpa);
+    var text = try bulg.emit.emit(&s, p, .fragment, .es300, gpa); // or .glsl330, .msl
     defer text.deinit(gpa);
     // a driver's log, back to the sources:
-    try bulg.glsl.mapLog(&s, &text, driver_log, w);
+    try bulg.emit.mapLog(&s, &text, driver_log, w);
+    // what a Metal host binds for the MSL text
+    const m = try bulg.emit.metalStage(&s, p, .fragment, arena);
     const r = try bulg.reflect.reflect(&s, p, arena);
 }
 ```
@@ -74,7 +80,8 @@ if (s.programChecked(p)) {
 bulg parse FILE...                  diagnostics, and how many files parse
 bulg check FILE...                  the files as one session: how many modules check
                                      and programs link
-bulg emit --dialect es300 --out DIR FILE...   DIR/NAME.vert and DIR/NAME.frag
+bulg emit --dialect D --out DIR FILE...   DIR/NAME.vert and DIR/NAME.frag (es300, glsl330),
+                                     DIR/NAME.vert.metal and .frag.metal (msl)
 bulg gen --root DIR --out FILE.zig  what addShaderTree runs
 bulg reflect FILE...                reflection as JSON (bulg.reflection/1, see
                                      src/reflect/json.zig)

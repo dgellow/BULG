@@ -12,7 +12,7 @@
 const std = @import("std");
 
 /// The dialects a shader tree can be generated in.
-pub const Dialect = enum { es300, glsl330 };
+pub const Dialect = enum { es300, glsl330, msl };
 
 pub const ShaderTreeOptions = struct {
     /// the directory of .bulg files (each named by its path in it)
