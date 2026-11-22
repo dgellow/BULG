@@ -201,6 +201,7 @@ const Gen = struct {
             }
             try g.put("    });\n");
         }
+        if (std.mem.indexOfScalar(emit.Dialect, g.options.dialects, .msl) != null) try g.metal(p);
         // samplers by name, as their slots
         try g.put("    /// each sampler's texture unit\n    pub const samplers = struct {\n");
         for (r.samplers) |sm| try g.print("        pub const {f} = {d};\n", .{ std.zig.fmtId(sm.name), sm.slot });
@@ -248,6 +249,24 @@ const Gen = struct {
         try g.put("        },\n        .files = &.{");
         for (r.files, 0..) |f, i| try g.print("{s}\"{f}\"", .{ if (i == 0) "" else ", ", std.zig.fmtString(f) });
         try g.put("},\n    };\n};\n");
+    }
+
+    /// What a Metal host binds for each stage (`emit.metalStage`).
+    fn metal(g: *Gen, p: *const Ir.Program) Error!void {
+        try g.put("    /// what the MSL texts bind: buffers, textures, attributes\n    pub const metal = struct {\n");
+        for ([_]Ir.Stage{ .vertex, .fragment }) |stage| {
+            const m = try emit.metalStage(g.s, p, stage, g.a);
+            try g.print("        pub const {s}: MetalStage = .{{\n            .blocks = &.{{", .{@tagName(stage)});
+            for (m.blocks, 0..) |b, i| try g.print("{s}\"{s}\"", .{ if (i == 0) "" else ", ", b });
+            try g.put("},\n            .params = &.{\n");
+            for (m.params) |f| try g.print("                .{{ .name = \"{s}\", .type = .{s}, .len = {d}, .offset = {d}, .stride = {d} }},\n", .{ f.name, @tagName(f.type), f.len, f.offset, f.stride });
+            try g.print("            }},\n            .params_size = {d},\n            .textures = &.{{", .{m.params_size});
+            for (m.textures, 0..) |t, i| try g.print("{s}\"{s}\"", .{ if (i == 0) "" else ", ", t });
+            try g.put("},\n            .attributes = &.{");
+            for (m.attributes, 0..) |at, i| try g.print("{s}.{{ .name = \"{s}\", .type = .{s}, .index = {d} }}", .{ if (i == 0) "" else ", ", at.name, glslType(g.s, at.type), at.index });
+            try g.put("},\n        };\n");
+        }
+        try g.put("    };\n");
     }
 
     fn metas(g: *Gen, ms: []const R.Meta) Error!void {
@@ -319,6 +338,19 @@ const prelude =
     \\pub const Param = struct { name: []const u8, type: Type, default: []const f64, meta: []const Meta };
     \\pub const Spec = struct { name: []const u8, type: Type, value: f64, default: f64, meta: []const Meta };
     \\pub const Input = struct { name: []const u8, type: Type, location: ?u32 };
+    \\
+    \\/// A loose uniform in an MSL stage's `bulg_Params` (len 0: one value).
+    \\pub const MetalField = struct { name: []const u8, type: Type, len: u32, offset: u32, stride: u32 };
+    \\pub const MetalAttribute = struct { name: []const u8, type: Type, index: u32 };
+    \\/// What an MSL stage binds: the blocks at buffer 0, 1, ..., then `bulg_Params` (if
+    \\/// `params_size` > 0); the samplers at texture and sampler 0, 1, ...; the attributes.
+    \\pub const MetalStage = struct {
+    \\    blocks: []const []const u8,
+    \\    params: []const MetalField,
+    \\    params_size: u32,
+    \\    textures: []const []const u8,
+    \\    attributes: []const MetalAttribute,
+    \\};
     \\
     \\/// A program: its texts, and what a host binds to run it.
     \\pub const Info = struct {

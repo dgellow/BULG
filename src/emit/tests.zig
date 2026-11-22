@@ -247,4 +247,15 @@ test "MSL spells out what Metal lacks" {
         std.debug.print("missing `{s}` in:\n{s}\n", .{ w, out.text });
         return error.TestUnexpectedResult;
     };
+
+    // and what a host binds for it
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const m = try emit.metalStage(&s, s.findProgram("p").?, .fragment, arena.allocator());
+    try testing.expectEqual(@as(usize, 1), m.blocks.len);
+    try testing.expectEqualStrings("Frame", m.blocks[0]);
+    try testing.expectEqual(@as(usize, 1), m.params.len);
+    try testing.expectEqualStrings("uM", m.params[0].name);
+    try testing.expectEqual(@as(u32, 64), m.params_size);
+    try testing.expectEqual(@as(usize, 0), m.textures.len);
 }

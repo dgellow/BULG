@@ -126,6 +126,88 @@ pub fn emitWhy(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, dial
     return .{ .text = try e.text.toOwnedSlice(), .lines = lines };
 }
 
+/// What a Metal host binds for one stage of a program's MSL text. Names are the
+/// source's (what a host knows its uniforms by); indices are the text's.
+pub const MetalStage = struct {
+    /// the uniform blocks, at buffer 0, 1, ...
+    blocks: []const []const u8,
+    /// the loose uniforms in `bulg_Params`, at buffer `blocks.len` (when there are any)
+    params: []const MetalField,
+    /// the size of `bulg_Params` in bytes (0: none)
+    params_size: u32,
+    /// the samplers, at texture and sampler 0, 1, ...
+    textures: []const []const u8,
+    /// the vertex attributes and their indices (a vertex stage's inputs)
+    attributes: []const MetalAttribute,
+};
+
+pub const MetalField = struct {
+    name: []const u8,
+    type: Type,
+    /// 0 for one value, else the array's length
+    len: u32,
+    offset: u32,
+    /// bytes from one element to the next (an array's stride; the size for one value)
+    stride: u32,
+};
+
+pub const MetalAttribute = struct { name: []const u8, type: Type, index: u32 };
+
+/// The bindings of `stage` of `prog` in MSL, in `a`'s memory.
+pub fn metalStage(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, a: std.mem.Allocator) Error!MetalStage {
+    const info = (if (stage == .vertex) prog.vertex else prog.fragment) orelse return error.NotChecked;
+    if (!s.stageChecked(prog, info)) return error.NotChecked;
+    var e: Emitter = .{
+        .s = s,
+        .a = a,
+        .info = info,
+        .specs = .{ .values = prog.specs },
+        .text = .init(a),
+        .r = .{ .s = s, .a = a, .info = info, .specs = .{ .values = prog.specs } },
+        .dialect = .msl,
+        .stage = stage,
+    };
+    try e.r.collect();
+    const sorted = try e.r.order();
+    try e.name(sorted);
+    const parts = try e.classify(sorted);
+    var blocks: std.ArrayList([]const u8) = .empty;
+    for (parts.blocks) |d| try blocks.append(a, e.mod(d.block.module).blocks[d.block.index].name);
+    var fields: std.ArrayList(MetalField) = .empty;
+    var off: u32 = 0;
+    var max_align: u32 = 1;
+    for (parts.params) |r| {
+        const g = e.mod(r.module).globals[r.index];
+        var t = g.type;
+        var len: u32 = 0;
+        if (s.pool.arrayOf(t)) |arr| {
+            t = arr.elem;
+            len = arr.len;
+        }
+        if (!t.isBuiltin()) return error.Unsupported;
+        const l = msl.layout(t);
+        const stride = msl.alignUp(l.size, l.alignment);
+        off = msl.alignUp(off, l.alignment);
+        max_align = @max(max_align, l.alignment);
+        try fields.append(a, .{ .name = g.name, .type = t, .len = len, .offset = off, .stride = stride });
+        off += if (len == 0) l.size else stride * len;
+    }
+    var textures: std.ArrayList([]const u8) = .empty;
+    for (parts.samplers) |r| try textures.append(a, e.mod(r.module).globals[r.index].name);
+    var attributes: std.ArrayList(MetalAttribute) = .empty;
+    if (stage == .vertex) for (parts.ins, 0..) |r, k| {
+        const g = e.mod(r.module).globals[r.index];
+        try attributes.append(a, .{ .name = g.name, .type = g.type, .index = g.location orelse @intCast(k) });
+    };
+    return .{
+        .blocks = blocks.items,
+        .params = fields.items,
+        .params_size = if (fields.items.len == 0) 0 else msl.alignUp(off, max_align),
+        .textures = textures.items,
+        .attributes = attributes.items,
+    };
+}
+
 /// `driver_log` with every `0:LINE` (Mesa, ANGLE), `0(LINE)` (NVIDIA, Apple's GL) and
 /// `program_source:LINE` (Metal) turned into `path:line` of the source the emitted line
 /// came from.
@@ -846,27 +928,13 @@ const Emitter = struct {
         const sorted = try e.r.order();
         try e.name(sorted);
 
-        var blocks: std.ArrayList(Decl) = .empty;
-        var params: std.ArrayList(Ir.Ref) = .empty;
-        var samplers: std.ArrayList(Ir.Ref) = .empty;
-        var ins: std.ArrayList(Ir.Ref) = .empty;
-        var outs: std.ArrayList(Ir.Ref) = .empty;
-        for (sorted) |d| switch (d) {
-            .block => try blocks.append(e.a, d),
-            .global => |r| {
-                const g = e.mod(r.module).globals[r.index];
-                switch (g.kind) {
-                    .uniform, .param => if (g.block == null) {
-                        if (g.type == .sampler2D) try samplers.append(e.a, r) else try params.append(e.a, r);
-                    },
-                    .in => try ins.append(e.a, r),
-                    .out => try outs.append(e.a, r),
-                    else => {},
-                }
-            },
-            else => {},
-        };
-        if (samplers.items.len > 0) e.helpers.insert(.sampler);
+        const parts = try e.classify(sorted);
+        const blocks = parts.blocks;
+        const params = parts.params;
+        const samplers = parts.samplers;
+        const ins = parts.ins;
+        const outs = parts.outs;
+        if (samplers.len > 0) e.helpers.insert(.sampler);
 
         // program scope
         for (sorted) |d| switch (d) {
@@ -875,10 +943,10 @@ const Emitter = struct {
             .global => |r| if (try e.atProgramScope(r)) try e.mslGlobal(r, true),
             .function => {},
         };
-        if (params.items.len > 0) {
+        if (params.len > 0) {
             try e.put("struct bulg_Params {");
             try e.nl();
-            for (params.items) |r| {
+            for (params) |r| {
                 const g = e.mod(r.module).globals[r.index];
                 try e.mark(r.module, g.tok);
                 try e.put("  ");
@@ -894,12 +962,12 @@ const Emitter = struct {
         try e.put("struct bulg_Stage {");
         try e.nl();
         e.depth = 1;
-        for (blocks.items) |d| {
+        for (blocks) |d| {
             const n = e.declName(d);
             try e.print("  constant {s}* bulg_{s};", .{ n, n });
             try e.nl();
         }
-        if (params.items.len > 0) {
+        if (params.len > 0) {
             try e.put("  constant bulg_Params* bulg_params;");
             try e.nl();
         }
@@ -930,7 +998,7 @@ const Emitter = struct {
         try e.put("};");
         try e.nl();
 
-        try e.mslEntry(blocks.items, params.items.len > 0, samplers.items, ins.items, outs.items);
+        try e.mslEntry(blocks, params.len > 0, samplers, ins, outs);
 
         // the header and the prelude go before what was printed, which moves every line
         const body = e.text.toOwnedSlice() catch return error.OutOfMemory;
@@ -943,6 +1011,40 @@ const Emitter = struct {
         for (e.lines.items) |*l| l.line += shift;
         try e.put(pre.items);
         try e.put(body);
+    }
+
+    const Parts = struct {
+        blocks: []const Decl,
+        params: []const Ir.Ref,
+        samplers: []const Ir.Ref,
+        ins: []const Ir.Ref,
+        outs: []const Ir.Ref,
+    };
+
+    /// What the stage binds and passes, in the order of the text (which is the order of
+    /// buffer, texture and attribute indices).
+    fn classify(e: *Emitter, sorted: []const Decl) Error!Parts {
+        var blocks: std.ArrayList(Decl) = .empty;
+        var params: std.ArrayList(Ir.Ref) = .empty;
+        var samplers: std.ArrayList(Ir.Ref) = .empty;
+        var ins: std.ArrayList(Ir.Ref) = .empty;
+        var outs: std.ArrayList(Ir.Ref) = .empty;
+        for (sorted) |d| switch (d) {
+            .block => try blocks.append(e.a, d),
+            .global => |r| {
+                const g = e.mod(r.module).globals[r.index];
+                switch (g.kind) {
+                    .uniform, .param => if (g.block == null) {
+                        if (g.type == .sampler2D) try samplers.append(e.a, r) else try params.append(e.a, r);
+                    },
+                    .in => try ins.append(e.a, r),
+                    .out => try outs.append(e.a, r),
+                    else => {},
+                }
+            },
+            else => {},
+        };
+        return .{ .blocks = blocks.items, .params = params.items, .samplers = samplers.items, .ins = ins.items, .outs = outs.items };
     }
 
     /// One line of the emitter's own (no source line).
