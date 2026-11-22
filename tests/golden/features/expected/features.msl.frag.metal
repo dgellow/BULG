@@ -1,11 +1,11 @@
 #include <metal_stdlib>
 using namespace metal;
 struct sampler2D { texture2d<float> t; sampler s; };
-inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
-inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
-inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
+static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
+static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
+static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
+static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
+static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
 struct Hit {
   float d;
   float3 n;
@@ -65,7 +65,7 @@ struct bulg_FragmentIn {
 struct bulg_FragmentOut {
   float4 color [[color(0)]];
 };
-fragment bulg_FragmentOut bulg_main(
+[[fragment]] bulg_FragmentOut bulg_main(
     bulg_FragmentIn bulg_in [[stage_in]],
     constant bulg_Params& bulg_params_buffer [[buffer(0)]],
     texture2d<float> bulg_uPrev_texture [[texture(0)]],

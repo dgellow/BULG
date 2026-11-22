@@ -160,11 +160,11 @@ pub const Helper = enum {
 /// (as GLSL defines it for vertex shaders).
 pub const sampler_vertex =
     \\struct sampler2D { texture2d<float> t; sampler s; };
-    \\inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv, level(0.0f)); }
-    \\inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, level(0.0f)); }
-    \\inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-    \\inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-    \\inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
+    \\static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv, level(0.0f)); }
+    \\static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, level(0.0f)); }
+    \\static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
+    \\static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
+    \\static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
     \\
 ;
 
@@ -172,11 +172,11 @@ pub fn helperText(h: Helper) []const u8 {
     return switch (h) {
         .sampler =>
         \\struct sampler2D { texture2d<float> t; sampler s; };
-        \\inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
-        \\inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
-        \\inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-        \\inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-        \\inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
+        \\static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
+        \\static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
+        \\static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
+        \\static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
+        \\static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
         \\
         ,
         // GLSL's mod floors; Metal's fmod truncates
@@ -201,17 +201,17 @@ pub fn helperText(h: Helper) []const u8 {
         \\template<typename T> inline decltype(T() == T()) notEqual(T a, T b) { return a != b; }
         \\
         ,
-        .comp_mult2 => "inline float2x2 matrixCompMult(float2x2 a, float2x2 b) { return float2x2(a[0] * b[0], a[1] * b[1]); }\n",
-        .comp_mult3 => "inline float3x3 matrixCompMult(float3x3 a, float3x3 b) { return float3x3(a[0] * b[0], a[1] * b[1], a[2] * b[2]); }\n",
-        .comp_mult4 => "inline float4x4 matrixCompMult(float4x4 a, float4x4 b) { return float4x4(a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]); }\n",
-        .outer2 => "inline float2x2 outerProduct(float2 c, float2 r) { return float2x2(c * r.x, c * r.y); }\n",
-        .outer3 => "inline float3x3 outerProduct(float3 c, float3 r) { return float3x3(c * r.x, c * r.y, c * r.z); }\n",
-        .outer4 => "inline float4x4 outerProduct(float4 c, float4 r) { return float4x4(c * r.x, c * r.y, c * r.z, c * r.w); }\n",
-        .inverse2 => "inline float2x2 inverse(float2x2 m) { return float2x2(float2(m[1][1], -m[0][1]), float2(-m[1][0], m[0][0])) * (1.0f / determinant(m)); }\n",
+        .comp_mult2 => "static inline float2x2 matrixCompMult(float2x2 a, float2x2 b) { return float2x2(a[0] * b[0], a[1] * b[1]); }\n",
+        .comp_mult3 => "static inline float3x3 matrixCompMult(float3x3 a, float3x3 b) { return float3x3(a[0] * b[0], a[1] * b[1], a[2] * b[2]); }\n",
+        .comp_mult4 => "static inline float4x4 matrixCompMult(float4x4 a, float4x4 b) { return float4x4(a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]); }\n",
+        .outer2 => "static inline float2x2 outerProduct(float2 c, float2 r) { return float2x2(c * r.x, c * r.y); }\n",
+        .outer3 => "static inline float3x3 outerProduct(float3 c, float3 r) { return float3x3(c * r.x, c * r.y, c * r.z); }\n",
+        .outer4 => "static inline float4x4 outerProduct(float4 c, float4 r) { return float4x4(c * r.x, c * r.y, c * r.z, c * r.w); }\n",
+        .inverse2 => "static inline float2x2 inverse(float2x2 m) { return float2x2(float2(m[1][1], -m[0][1]), float2(-m[1][0], m[0][0])) * (1.0f / determinant(m)); }\n",
         // the rows of the inverse are the cross products of the columns, over the determinant
-        .inverse3 => "inline float3x3 inverse(float3x3 m) { float3 a = m[0], b = m[1], c = m[2]; float3 r0 = cross(b, c), r1 = cross(c, a), r2 = cross(a, b); return transpose(float3x3(r0, r1, r2)) * (1.0f / dot(a, r0)); }\n",
+        .inverse3 => "static inline float3x3 inverse(float3x3 m) { float3 a = m[0], b = m[1], c = m[2]; float3 r0 = cross(b, c), r1 = cross(c, a), r2 = cross(a, b); return transpose(float3x3(r0, r1, r2)) * (1.0f / dot(a, r0)); }\n",
         .inverse4 =>
-        \\inline float4x4 inverse(float4x4 m) {
+        \\static inline float4x4 inverse(float4x4 m) {
         \\  float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2], a03 = m[0][3];
         \\  float a10 = m[1][0], a11 = m[1][1], a12 = m[1][2], a13 = m[1][3];
         \\  float a20 = m[2][0], a21 = m[2][1], a22 = m[2][2], a23 = m[2][3];
@@ -229,16 +229,16 @@ pub fn helperText(h: Helper) []const u8 {
         \\}
         \\
         ,
-        .diag2 => "inline float2x2 bulg_diag2(float s) { return float2x2(float2(s, 0.0f), float2(0.0f, s)); }\n",
-        .diag3 => "inline float3x3 bulg_diag3(float s) { return float3x3(float3(s, 0.0f, 0.0f), float3(0.0f, s, 0.0f), float3(0.0f, 0.0f, s)); }\n",
-        .diag4 => "inline float4x4 bulg_diag4(float s) { return float4x4(float4(s, 0.0f, 0.0f, 0.0f), float4(0.0f, s, 0.0f, 0.0f), float4(0.0f, 0.0f, s, 0.0f), float4(0.0f, 0.0f, 0.0f, s)); }\n",
+        .diag2 => "static inline float2x2 bulg_diag2(float s) { return float2x2(float2(s, 0.0f), float2(0.0f, s)); }\n",
+        .diag3 => "static inline float3x3 bulg_diag3(float s) { return float3x3(float3(s, 0.0f, 0.0f), float3(0.0f, s, 0.0f), float3(0.0f, 0.0f, s)); }\n",
+        .diag4 => "static inline float4x4 bulg_diag4(float s) { return float4x4(float4(s, 0.0f, 0.0f, 0.0f), float4(0.0f, s, 0.0f, 0.0f), float4(0.0f, 0.0f, s, 0.0f), float4(0.0f, 0.0f, 0.0f, s)); }\n",
         // GLSL: the columns cut to size, or filled from the identity
-        .mat2_3 => "inline float2x2 bulg_mat2(float3x3 m) { return float2x2(m[0].xy, m[1].xy); }\n",
-        .mat2_4 => "inline float2x2 bulg_mat2(float4x4 m) { return float2x2(m[0].xy, m[1].xy); }\n",
-        .mat3_2 => "inline float3x3 bulg_mat3(float2x2 m) { return float3x3(float3(m[0], 0.0f), float3(m[1], 0.0f), float3(0.0f, 0.0f, 1.0f)); }\n",
-        .mat3_4 => "inline float3x3 bulg_mat3(float4x4 m) { return float3x3(m[0].xyz, m[1].xyz, m[2].xyz); }\n",
-        .mat4_2 => "inline float4x4 bulg_mat4(float2x2 m) { return float4x4(float4(m[0], 0.0f, 0.0f), float4(m[1], 0.0f, 0.0f), float4(0.0f, 0.0f, 1.0f, 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f)); }\n",
-        .mat4_3 => "inline float4x4 bulg_mat4(float3x3 m) { return float4x4(float4(m[0], 0.0f), float4(m[1], 0.0f), float4(m[2], 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f)); }\n",
+        .mat2_3 => "static inline float2x2 bulg_mat2(float3x3 m) { return float2x2(m[0].xy, m[1].xy); }\n",
+        .mat2_4 => "static inline float2x2 bulg_mat2(float4x4 m) { return float2x2(m[0].xy, m[1].xy); }\n",
+        .mat3_2 => "static inline float3x3 bulg_mat3(float2x2 m) { return float3x3(float3(m[0], 0.0f), float3(m[1], 0.0f), float3(0.0f, 0.0f, 1.0f)); }\n",
+        .mat3_4 => "static inline float3x3 bulg_mat3(float4x4 m) { return float3x3(m[0].xyz, m[1].xyz, m[2].xyz); }\n",
+        .mat4_2 => "static inline float4x4 bulg_mat4(float2x2 m) { return float4x4(float4(m[0], 0.0f, 0.0f), float4(m[1], 0.0f, 0.0f), float4(0.0f, 0.0f, 1.0f, 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f)); }\n",
+        .mat4_3 => "static inline float4x4 bulg_mat4(float3x3 m) { return float4x4(float4(m[0], 0.0f), float4(m[1], 0.0f), float4(m[2], 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f)); }\n",
     };
 }
 

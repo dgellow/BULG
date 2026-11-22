@@ -14,7 +14,7 @@ struct bulg_VertexOut {
   float4 gl_Position [[position]];
   float2 vUv [[user(vUv)]];
 };
-vertex bulg_VertexOut bulg_main(
+[[vertex]] bulg_VertexOut bulg_main(
     uint bulg_vertex_id [[vertex_id]]) {
   bulg_Stage s;
   s.gl_VertexID = int(bulg_vertex_id);

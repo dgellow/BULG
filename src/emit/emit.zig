@@ -744,7 +744,13 @@ const Emitter = struct {
             },
             .alias => |r| try e.expr(r.module, e.mod(r.module).aliases[r.index].value, min),
             .call => |d| {
-                try e.put(e.declName(.{ .function = e.r.fill(d.callee) }));
+                const callee = e.r.fill(d.callee);
+                if (e.isMsl()) {
+                    // a reference cannot bind to part of a vector
+                    const f = e.mod(callee.module).functions[callee.index];
+                    for (f.params, 0..) |p, k| if (p.dir != .in and e.vectorPart(mi, e.argAt(mi, d.args, k))) return e.unsupported("an out or inout argument that is part of a vector");
+                }
+                try e.put(e.declName(.{ .function = callee }));
                 try e.args(mi, d.args);
             },
             .builtin_call => |d| {
@@ -1105,7 +1111,7 @@ const Emitter = struct {
             try e.nl();
         }
         // the signature, one argument to a line
-        try e.print("{s} {s} bulg_main(", .{ if (vertex) "vertex" else "fragment", if (has_out) out_name else "void" });
+        try e.print("[[{s}]] {s} bulg_main(", .{ if (vertex) "vertex" else "fragment", if (has_out) out_name else "void" });
         var first = true;
         const Arg = struct {
             fn sep(em: *Emitter, f: *bool) Error!void {
@@ -1220,6 +1226,9 @@ const Emitter = struct {
         const n = f.name;
         const eq = std.mem.eql;
         const ret = ex.type;
+        if (f.out_mask != 0) for (0..f.params.len) |k| {
+            if (f.out_mask & (@as(u8, 1) << @intCast(k)) != 0 and e.vectorPart(mi, e.argAt(mi, l, k))) return e.unsupported("an out argument that is part of a vector");
+        };
         if (eq(u8, n, "not")) {
             try e.put("(!");
             try e.expr(mi, e.argAt(mi, l, 0), prec_prefix);
@@ -1306,6 +1315,17 @@ const Emitter = struct {
             } else try e.expr(mi, ax, 0);
         }
         try e.put(")");
+    }
+
+    /// Is `x` a swizzle or component of a vector (which no reference binds to)?
+    fn vectorPart(e: *Emitter, mi: u32, x: Ir.ExprId) bool {
+        const ex = e.mod(mi).expr(x);
+        return switch (ex.data) {
+            .swizzle => true,
+            .index => |d| e.mod(mi).expr(d.base).type.vectorLen() != null,
+            .alias => |r| e.vectorPart(r.module, e.mod(r.module).aliases[r.index].value),
+            else => false,
+        };
     }
 
     /// Component `k` of `x` (a scalar is its own component 0).

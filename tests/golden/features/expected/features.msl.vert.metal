@@ -25,7 +25,7 @@ struct bulg_VertexOut {
   int vKind [[user(vKind)]];
   float2 vUv [[user(vUv)]];
 };
-vertex bulg_VertexOut bulg_main(
+[[vertex]] bulg_VertexOut bulg_main(
     bulg_VertexIn bulg_in [[stage_in]],
     uint bulg_instance_id [[instance_id]]) {
   bulg_Stage s;

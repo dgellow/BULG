@@ -48,7 +48,7 @@ struct bulg_FragmentIn {
 struct bulg_FragmentOut {
   float4 fragColor [[color(0)]];
 };
-fragment bulg_FragmentOut bulg_main(
+[[fragment]] bulg_FragmentOut bulg_main(
     bulg_FragmentIn bulg_in [[stage_in]],
     constant Frame& bulg_Frame_buffer [[buffer(0)]]) {
   bulg_Stage s;
