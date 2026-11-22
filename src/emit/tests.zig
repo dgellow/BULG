@@ -185,3 +185,20 @@ test "emitting runs out of memory cleanly" {
         }
     }.run, .{});
 }
+
+test "constant vectors and matrices, component by component" {
+    var s = try session(&.{.{ "c.glint", "const vec3 A = vec3(1., vec2(2, 3)); const mat2 M = mat2(2.); const vec4 B = -vec4(A, 4.); const ivec2 I = ivec2(vec2(1.5, -2.5));" }});
+    defer s.deinit();
+    const eval = @import("../ir/eval.zig");
+    var buf: [16]@import("../ir/Ir.zig").Const = undefined;
+    const m = s.modules[0];
+    const want = [_][]const f32{ &.{ 1, 2, 3 }, &.{ 2, 0, 0, 2 }, &.{ -1, -2, -3, -4 } };
+    for (want, 0..) |w, gi| {
+        const got = eval.components(s.modules, 0, m.globals[gi].init, .{ .values = &.{} }, &buf).?;
+        try testing.expectEqual(w.len, got.len);
+        for (w, got) |x, y| try testing.expectEqual(x, y.float);
+    }
+    const ints = eval.components(s.modules, 0, m.globals[3].init, .{ .values = &.{} }, &buf).?;
+    try testing.expectEqual(@as(i32, 1), ints[0].int);
+    try testing.expectEqual(@as(i32, -2), ints[1].int);
+}

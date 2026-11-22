@@ -524,6 +524,13 @@ fn resolveGlobal(c: *Checker, mi: u32, k: u32) Error!void {
             const md = m.node(@fromBackingInt(@intCast(me))).data.meta_entry;
             var args: std.ArrayList(u32) = .empty;
             for (m.nodeList(md.args)) |arg| {
+                // a bare word nothing declares (`curve(exp)`) is the host's to read, like a
+                // string; a declared name (`range(0., MAX)`) is its value
+                const an = m.node(@fromBackingInt(@intCast(arg)));
+                if (an.data == .ident and (try c.lookup(mi, m.text(an.tok), an.tok)) == null and builtins.variable(m.text(an.tok)) == null) {
+                    try args.append(c.a, @backingInt(try c.addExpr(mi, .void, an.tok, .string)));
+                    continue;
+                }
                 var x = c.moduleCtx(mi);
                 x.allow_strings = true;
                 const e = try c.expr(&x, @fromBackingInt(@intCast(arg)));

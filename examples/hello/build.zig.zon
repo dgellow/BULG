@@ -1,0 +1,10 @@
+.{
+    .name = .glint_hello,
+    .version = "0.0.0",
+    .fingerprint = 0xf9df4c5e660b9264,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{
+        .glint = .{ .path = "../.." },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "shaders" },
+}

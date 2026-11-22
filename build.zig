@@ -1,13 +1,46 @@
 //! Glint builds and tests on its own: nothing here reaches outside this directory.
+//! Packages that depend on it use `addShaderTree` (below).
 //!   zig build         the `glint` command, in zig-out/bin
 //!   zig build test    unit tests on the host
-//!   zig build check   formatting, unit tests, the golden texts, the freestanding self-test
-//!                     under node, and a compile for iOS (no SDK needed)
+//!   zig build check   formatting, unit tests, the golden texts, examples/hello (built
+//!                     with addShaderTree), the freestanding self-test under node, and a
+//!                     compile for iOS (no SDK needed)
 //!   zig build update-golden   record the emitters' texts as tests/golden's expected ones
 //!   zig build check-gpu       the golden ES 3.00 texts compiled in Chromium's WebGL 2
 //!                     (needs node and Playwright)
 
 const std = @import("std");
+
+/// The dialects a shader tree can be generated in.
+pub const Dialect = enum { es300, glsl330 };
+
+pub const ShaderTreeOptions = struct {
+    /// the directory of .glint files (each named by its path in it)
+    root: std.Build.LazyPath,
+    /// the dialects whose texts the module has
+    dialects: []const Dialect = &.{ .es300, .glsl330 },
+};
+
+/// A shader tree as a Zig module: every program's texts and reflection (see
+/// src/reflect/zig.zig), made by the `glint` command at build time. The module imports
+/// only `std`, so nothing of the compiler is linked.
+///
+///     const glint_dep = b.dependency("glint", .{ .target = b.graph.host, .optimize = .ReleaseSafe });
+///     const shaders = @import("glint").addShaderTree(b, glint_dep, .{ .root = b.path("shaders") });
+///     exe.root_module.addImport("shaders", shaders);
+///
+/// The tree is read again at every build (it takes milliseconds), so that a new file is
+/// never missed; the module is recompiled only when its text changes.
+pub fn addShaderTree(b: *std.Build, glint_dep: *std.Build.Dependency, options: ShaderTreeOptions) *std.Build.Module {
+    const run = b.addRunArtifact(glint_dep.artifact("glint"));
+    run.addArgs(&.{ "gen", "--root" });
+    run.addDirectoryArg(options.root);
+    for (options.dialects) |d| run.addArgs(&.{ "--dialect", @tagName(d) });
+    run.addArg("--out");
+    const out = run.addOutputFileArg("shaders.zig");
+    run.has_side_effects = true;
+    return b.createModule(.{ .root_source_file = out });
+}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -42,6 +75,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     test_mod.addAnonymousImport("README.md", .{ .root_source_file = b.path("README.md") });
+    // a golden tree, for the fixed-buffer test
+    for ([_][]const u8{ "frame", "fullscreen", "common", "world_main", "reef" }) |name| {
+        test_mod.addAnonymousImport(b.fmt("golden_world_{s}", .{name}), .{ .root_source_file = b.path(b.fmt("tests/golden/world/{s}.glint", .{name})) });
+    }
     const tests = b.addTest(.{ .root_module = test_mod });
     const run_tests = b.addRunArtifact(tests);
     b.step("test", "Run the unit tests").dependOn(&run_tests.step);
@@ -104,11 +141,18 @@ pub fn build(b: *std.Build) void {
     webgl.step.dependOn(&run_golden.step);
     b.step("check-gpu", "The golden ES 3.00 texts compiled and linked in Chromium's WebGL 2").dependOn(&webgl.step);
 
-    const check = b.step("check", "Formatting, unit tests, golden texts, the freestanding self-test, an iOS compile");
+    // the build-time path end to end: a package that depends on this one and uses
+    // addShaderTree, built and tested on its own
+    const example = b.addSystemCommand(&.{ b.graph.zig_exe, "build", "test" });
+    example.setCwd(b.path("examples/hello"));
+    example.has_side_effects = true;
+
+    const check = b.step("check", "Formatting, unit tests, golden texts, the example, the freestanding self-test, an iOS compile");
     check.dependOn(&fmt.step);
     check.dependOn(&run_tests.step);
     check.dependOn(&run_selftest.step);
     check.dependOn(&ios.step);
     check.dependOn(&exe.step);
     check.dependOn(&run_golden.step);
+    check.dependOn(&example.step);
 }

@@ -7,6 +7,11 @@
 //!   glint emit [--dialect es300|glsl330] --out DIR FILE...
 //!                         check the files, and write each linked program's stages as
 //!                         DIR/NAME.vert and DIR/NAME.frag
+//!   glint gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
+//!                         the shader tree under DIR (every .glint file, named by its
+//!                         path in DIR) as one Zig source: texts and reflection
+//!   glint reflect FILE...  check the files, and print every program's reflection as JSON
+//!                         (glint.reflection/1)
 //!   glint print [--shape] FILE
 //!                         print FILE's tree as canonical text (comments are not kept;
 //!                         exit 1 if it does not parse); --shape puts every operand in
@@ -19,6 +24,8 @@ const usage =
     \\usage: glint parse FILE...
     \\       glint check FILE...
     \\       glint emit [--dialect es300|glsl330] --out DIR FILE...
+    \\       glint gen --root DIR [--dialect D]... --out FILE [--depfile FILE]
+    \\       glint reflect FILE...
     \\       glint print [--shape] FILE
     \\
 ;
@@ -54,6 +61,21 @@ pub fn main(init: std.process.Init) !u8 {
     }
     if (std.mem.eql(u8, cmd, "check")) return check(gpa, io, files, out, err);
     if (std.mem.eql(u8, cmd, "emit")) return emit(gpa, io, files, out, err);
+    if (std.mem.eql(u8, cmd, "gen")) return gen(gpa, io, files, err);
+    if (std.mem.eql(u8, cmd, "reflect")) {
+        var s: glint.Session = .init(gpa, .{});
+        defer s.deinit();
+        if (!try load(gpa, io, &s, files, err)) return 1;
+        try s.analyze();
+        for (s.diagnostics()) |d| try d.render(err, s.source(d.span.src));
+        if (s.errorCount() > 0) return 1;
+        glint.reflection_json.write(&s, out, s.arena()) catch |e| switch (e) {
+            error.NotChecked => unreachable, // no errors
+            else => |x| return x,
+        };
+        try out.writeByte('\n');
+        return 0;
+    }
     if (std.mem.eql(u8, cmd, "print")) {
         const shape = files.len == 2 and std.mem.eql(u8, files[0], "--shape");
         if (files.len == 1 or shape) {
@@ -170,4 +192,89 @@ fn emit(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, out: *std
     }
     try out.print("{d} of {d} programs emitted ({t})\n", .{ written, programs, dialect });
     return if (s.errorCount() == 0) 0 else 1;
+}
+
+fn gen(gpa: std.mem.Allocator, io: std.Io, raw: []const [:0]const u8, err: *std.Io.Writer) !u8 {
+    var root: ?[]const u8 = null;
+    var out_path: ?[]const u8 = null;
+    var dep_path: ?[]const u8 = null;
+    var dialects: std.ArrayList(glint.glsl.Dialect) = .empty;
+    defer dialects.deinit(gpa);
+    var i: usize = 0;
+    while (i + 1 < raw.len) : (i += 2) {
+        const v = raw[i + 1];
+        if (std.mem.eql(u8, raw[i], "--root")) {
+            root = v;
+        } else if (std.mem.eql(u8, raw[i], "--out")) {
+            out_path = v;
+        } else if (std.mem.eql(u8, raw[i], "--depfile")) {
+            dep_path = v;
+        } else if (std.mem.eql(u8, raw[i], "--dialect")) {
+            try dialects.append(gpa, std.meta.stringToEnum(glint.glsl.Dialect, v) orelse {
+                try err.print("unknown dialect `{s}` (es300, glsl330)\n", .{v});
+                return 2;
+            });
+        } else break;
+    }
+    if (root == null or out_path == null or i != raw.len) {
+        try err.writeAll(usage);
+        return 2;
+    }
+    if (dialects.items.len == 0) try dialects.appendSlice(gpa, &.{ .es300, .glsl330 });
+
+    var s: glint.Session = .init(gpa, .{});
+    defer s.deinit();
+    const a = s.arena();
+    var dir = try std.Io.Dir.cwd().openDir(io, root.?, .{ .iterate = true });
+    defer dir.close(io);
+    // every .glint file under the root, in a fixed order
+    var paths: std.ArrayList([]const u8) = .empty;
+    var walker = try dir.walk(gpa);
+    defer walker.deinit();
+    while (try walker.next(io)) |e| {
+        if (e.kind == .file and std.mem.endsWith(u8, e.path, ".glint")) try paths.append(a, try a.dupe(u8, e.path));
+    }
+    std.mem.sort([]const u8, paths.items, {}, struct {
+        fn lt(_: void, x: []const u8, y: []const u8) bool {
+            return std.mem.order(u8, x, y) == .lt;
+        }
+    }.lt);
+    for (paths.items) |p| {
+        const text = try dir.readFileAlloc(io, p, gpa, .limited(s.limits.source_bytes));
+        defer gpa.free(text);
+        // module names use `/` on every system
+        const name = try a.dupe(u8, p);
+        std.mem.replaceScalar(u8, name, '\\', '/');
+        _ = try s.addSource(name, text);
+    }
+    try s.analyze();
+    for (s.diagnostics()) |d| try d.render(err, s.source(d.span.src));
+    if (s.errorCount() > 0) {
+        try err.print("glint gen: {d} errors in {s}\n", .{ s.errorCount(), root.? });
+        return 1;
+    }
+    const text = glint.zig_gen.generate(&s, .{ .dialects = dialects.items }, gpa) catch |e| switch (e) {
+        error.NotChecked => unreachable, // no errors
+        error.OutOfMemory => return error.OutOfMemory,
+    };
+    defer gpa.free(text);
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = out_path.?, .data = text });
+
+    if (dep_path) |dp| {
+        // `out: every source`, for the build system to know when to run again
+        var dep: std.Io.Writer.Allocating = .init(gpa);
+        defer dep.deinit();
+        try dep.writer.print("{s}:", .{out_path.?});
+        for (paths.items) |p| {
+            const full = try std.fs.path.join(a, &.{ root.?, p });
+            try dep.writer.writeAll(" ");
+            for (full) |ch| {
+                if (ch == ' ') try dep.writer.writeByte('\\');
+                try dep.writer.writeByte(ch);
+            }
+        }
+        try dep.writer.writeByte('\n');
+        try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = dp, .data = dep.written() });
+    }
+    return 0;
 }

@@ -26,6 +26,9 @@ pub const Ir = @import("ir/Ir.zig");
 pub const types = @import("sema/types.zig");
 pub const builtins = @import("sema/builtins.zig");
 pub const glsl = @import("emit/glsl.zig");
+pub const reflect = @import("reflect/Reflection.zig");
+pub const zig_gen = @import("reflect/zig.zig");
+pub const reflection_json = @import("reflect/json.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -42,4 +45,9 @@ test {
     _ = @import("ir/eval.zig");
     _ = @import("emit/glsl.zig");
     _ = @import("emit/tests.zig");
+    _ = @import("ir/reach.zig");
+    _ = @import("reflect/Reflection.zig");
+    _ = @import("reflect/tests.zig");
+    _ = @import("reflect/zig.zig");
+    _ = @import("reflect/json.zig");
 }

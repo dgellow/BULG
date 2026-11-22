@@ -31,7 +31,8 @@ the emitters and the API separately.
   - overloads, `out`/`inout` arguments that must be writable;
   - constant expressions, with values computed for sizes, locations and spec values;
   - scopes, free declaration order, imports with name lists, aliases;
-  - uniform blocks with std140 offsets, `param`/`spec` metadata;
+  - uniform blocks with std140 offsets and defaults, `param`/`spec` metadata (with bare
+    words: `curve(exp)`);
   - no recursion.
 - Programs: templates and parents, stages linked from their modules, `extern`s filled by
   exactly one definition, spec values, what each stage may use.
@@ -48,11 +49,27 @@ the emitters and the API separately.
   functions, what the stage uses). Everything in the session's arena.
 - `types` (the built-in types at fixed indices, interned structs and arrays, std140) and
   `builtins` (every overload, expanded at compile time).
-- The `glint` command: `parse`, `check`, `emit` and `print [--shape]`.
+- The `glint` command: `parse`, `check`, `emit`, `gen`, `reflect` and `print [--shape]`.
 - `Session.stageChecked`, `programChecked`; `Diagnostic.List.errorsIn` (per source, dropped
   ones included).
 - `Source` (line and column of a span), `Diagnostic` (stable codes E0001-E0007, a list with
   a limit, rendering with a caret), `Limits`, `Token`, `Lexer.tokenize`.
+
+### Reflection and the build
+- `reflect.reflect`: per program, what its texts declare:
+  - blocks with std140 offsets and defaults;
+  - loose uniforms, and samplers with their slots;
+  - params and spec constants, with values and metadata;
+  - inputs, varyings and outputs;
+  - what each stage uses, and the source files.
+- `zig_gen.generate`: a shader tree as one Zig source. It has the texts, the reflection
+  as tables, and an `extern struct` per block, checked at compile time. It imports only
+  `std`.
+- `reflection_json.write`: the same as JSON, `glint.reflection/1`.
+- `addShaderTree` (build.zig): a directory of `.glint` files as a Zig module, made at
+  build time. `examples/hello` uses it, and the check builds and tests it.
+- A fixed-buffer test: the golden world tree is checked, emitted and reflected in
+  1 MiB, using about 350 KiB.
 
 ### Emitters
 - GLSL ES 3.00 and GLSL 3.30 (`glsl.emit`), as `docs/targets.md` specifies:

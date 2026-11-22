@@ -188,3 +188,69 @@ test "integer folding wraps and refuses what GLSL leaves undefined" {
     try std.testing.expect(binary(.shr, .{ .uint = 0x80000000 }, .{ .int = 31 }).?.eql(.{ .uint = 1 }));
     try std.testing.expect(convert(.{ .uint = 0xffffffff }, .int).?.eql(.{ .int = -1 }));
 }
+
+/// The components of a constant scalar, vector or matrix expression (columns of a matrix
+/// one after the other), or null when it is not one Glint can compute. `out` holds up to
+/// 16; the result is a slice of it.
+pub fn components(modules: []const Ir.Module, mi: u32, e: Ir.ExprId, specs: Specs, out: *[16]Ir.Const) ?[]Ir.Const {
+    if (e == .none) return null;
+    const m = &modules[mi];
+    const ex = m.expr(e);
+    const t = ex.type;
+    const n = t.components() orelse return null;
+    if (t.isScalar()) {
+        out[0] = constant(modules, mi, e, specs) orelse return null;
+        return out[0..1];
+    }
+    switch (ex.data) {
+        .global => |r| {
+            const g = modules[r.module].globals[r.index];
+            if (g.kind != .@"const") return null;
+            return components(modules, r.module, g.init, specs, out);
+        },
+        .alias => |r| return components(modules, r.module, modules[r.module].aliases[r.index].value, specs, out),
+        .construct => |l| {
+            const s = t.scalarOf().?;
+            const args = m.list(l);
+            // one scalar: every component, or a matrix's diagonal
+            if (args.len == 1 and m.expr(@fromBackingInt(@intCast(args[0]))).type.isScalar()) {
+                const v = convert(constant(modules, mi, @fromBackingInt(@intCast(args[0])), specs) orelse return null, s) orelse return null;
+                if (t.matrixLen()) |k| {
+                    const zero = convert(.{ .int = 0 }, s).?;
+                    for (0..k) |c| for (0..k) |row| {
+                        out[c * k + row] = if (c == row) v else zero;
+                    };
+                } else for (0..n) |i| {
+                    out[i] = v;
+                }
+                return out[0..n];
+            }
+            if (t.matrixLen() != null and args.len == 1) return null; // a resize: not now
+            var have: usize = 0;
+            for (args) |a| {
+                var sub: [16]Ir.Const = undefined;
+                const part = components(modules, mi, @fromBackingInt(@intCast(a)), specs, &sub) orelse return null;
+                for (part) |v| {
+                    if (have == n) break;
+                    out[have] = convert(v, s) orelse return null;
+                    have += 1;
+                }
+            }
+            return if (have == n) out[0..n] else null;
+        },
+        .unary => |d| {
+            if (d.op != .neg and d.op != .plus) return null;
+            const part = components(modules, mi, d.operand, specs, out) orelse return null;
+            if (d.op == .neg) for (part) |*v| {
+                v.* = switch (v.*) {
+                    .int => |i| .{ .int = -%i },
+                    .uint => |u| .{ .uint = 0 -% u },
+                    .float => |f| .{ .float = -f },
+                    .bool => return null,
+                };
+            };
+            return part;
+        },
+        else => return null,
+    }
+}

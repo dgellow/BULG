@@ -20,9 +20,11 @@ v0.1: the front end.
   IR. `docs/language.md` specifies what it checks.
 - The GLSL ES 3.00 and GLSL 3.30 emitters, with spec constants specialised and a line map
   for drivers' logs. `docs/targets.md` specifies what they write.
+- Reflection, as tables in a generated Zig module or as JSON, and `addShaderTree`, which
+  turns a directory of shaders into that module at build time. `docs/embedding.md` shows
+  the three ways in.
 
-Next, in order: reflection and the build helper, the interpreter, then WGSL and MSL (see
-CHANGELOG.md).
+Next, in order: the interpreter, then WGSL and MSL (see CHANGELOG.md).
 
 ## The language, in one example
 
@@ -65,8 +67,9 @@ zig-out/bin/glint print FILE      # the syntax tree as canonical text (no commen
 zig-out/bin/glint print --shape FILE   # every operand in parentheses
 ```
 
-As a dependency: `.glint = .{ .path = "lib/glint" }` (or a URL and hash), then
-`b.dependency("glint", .{}).module("glint")`.
+As a dependency: `.glint = .{ .path = "lib/glint" }` (or a URL and hash). Then either
+`@import("glint").addShaderTree(b, dep, .{ .root = b.path("shaders") })` for a generated
+module of shaders, or `dep.module("glint")` for the library (`docs/embedding.md`).
 
 ## Rules the code keeps
 

@@ -61,7 +61,8 @@ specification. Each rule names the test that holds it: `parser:` tests are in
   and `out`.
 - Module-level initialisers are constant expressions (sema: constants and array sizes).
 - Metadata `{ key, key(args) }` is for `param`, `spec` and `uniform`. Its arguments are
-  constants or strings. Glint keeps the keys and passes them to the host.
+  constants, strings, or bare words that nothing declares (`curve(exp)`). Glint keeps the
+  keys and passes them to the host (sema: metadata).
 - A uniform block's members are laid out by std140; reflection gives each member's
   offset (sema: aliases, imports, uniform blocks).
 

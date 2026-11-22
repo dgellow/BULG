@@ -71,7 +71,7 @@ pub const Expr = struct {
     pub const Data = union(enum) {
         /// value and spelling (the token) of a literal
         literal: Const,
-        /// a string (the token, quotes included): only in metadata
+        /// a string (the token, quotes included) or a bare word: only in metadata
         string,
         /// a local variable of the function (index into Function.locals)
         local: u32,

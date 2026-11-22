@@ -1,0 +1,15 @@
+import "frame";
+param float speed = 1. { range(0., 4.), label("Speed") };
+param vec3 tint = vec3(1., .6, .3) { color };
+spec int RINGS = 8 { tiers(4, 8, 16) };
+uniform sampler2D uNoise;
+in vec2 vUv;
+out vec4 color;
+void main() {
+    vec2 p = (vUv - .5) * uRes / uRes.y;
+    float r = length(p) * float(RINGS) - uTime * speed;
+    float n = texture(uNoise, vUv).r;
+    color = vec4(tint * (.5 + .5 * cos(6.2831853 * r + n)), 1.);
+}
+program rings { vertex "fullscreen"; fragment "rings"; }
+program rings_fine : rings { spec RINGS = 16; }

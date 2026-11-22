@@ -140,6 +140,13 @@ test "constants and array sizes" {
     try bad("void f() { half h = half(1.); float x = h + 1.; }", &.{.bad_operands});
 }
 
+test "metadata" {
+    try ok("param float zoom = 1.6 { range(0.5, 4.0), curve(exp), label(\"Zoom\"), mod(\"audio.level\") }; spec int STEPS = 96 { tiers(48, 72, 96) };");
+    try bad("float x = 1. { range(0., 1.) };", &.{.misplaced_declaration});
+    try bad("float y; param float p = 1. { range(0., y) };", &.{.not_constant});
+    try ok("const float MAX = 4.; param float p = 1. { range(0., MAX), curve(exp) };");
+}
+
 test "statements" {
     try bad("void f() { break; }", &.{.outside_loop});
     try bad("void f() { return 1.; }", &.{.bad_return});

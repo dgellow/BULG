@@ -1,0 +1,6 @@
+uniform block Frame {
+    vec4 uRes4 = vec4(640., 360., 1. / 640., 1. / 360.);
+    float uTime;
+    mat3 uView = mat3(1.);
+};
+alias uRes = uRes4.xy;
