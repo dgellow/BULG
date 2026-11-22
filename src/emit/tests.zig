@@ -220,7 +220,10 @@ test "MSL spells out what Metal lacks" {
             \\  vec3 v = vec3(vec4(uSun, 1.));
             \\  bool x = (c > 0.) ^^ (s > 0.);
             \\  bvec2 n = not(lessThan(vUv, vec2(.5)));
-            \\  o = vec4(min(m * v, 0.), mod(atan(vUv.t, vUv.s), 2.)) + vec4(r * vUv.st, float(x), float(n.x));
+            \\  vec2 q = vUv;
+            \\  q.yx *= r;
+            \\  uint bits = (uint(c) >> (2u * uint(s) + 1u)) & 1u;
+            \\  o = vec4(min(m * v, 0.), mod(atan(vUv.t, vUv.s), 2.)) + vec4(r * vUv.st + q, float(x), float(n.x) + float(bits));
             \\}
             \\program p { vertex "v"; fragment "f"; }
         },
@@ -237,6 +240,8 @@ test "MSL spells out what Metal lacks" {
         "min(m * v, float3(0.f))",
         "mod(atan2(vUv.y, vUv.x), 2.f)",
         "r * vUv.xy",
+        "q.yx = q.yx * r;",
+        "uint bits = (uint(c) >> (2u * uint(s) + 1u)) & 1u;",
         "packed_float3 uSun;",
         "template<typename T> inline T mod(T x, T y)",
         "inline float3x3 bulg_mat3(float4x4 m)",

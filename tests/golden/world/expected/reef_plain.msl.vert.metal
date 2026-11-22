@@ -5,7 +5,7 @@ struct bulg_Stage {
   int gl_VertexID;
   float2 vUv;
   void main() {
-    float2 p = float2(float(gl_VertexID << 1 & 2), float(gl_VertexID & 2));
+    float2 p = float2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
     vUv = p;
     gl_Position = float4(p * 2.f - 1.f, 0.f, 1.f);
   }

@@ -2,10 +2,6 @@
 using namespace metal;
 struct sampler2D { texture2d<float> t; sampler s; };
 static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
-static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
-static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
 struct Hit {
   float d;
   float3 n;
@@ -23,7 +19,7 @@ struct bulg_Stage {
   uint hash(uint x) {
     x ^= x >> 16u;
     x *= 0x7feb352du;
-    return x ^ x >> 15u;
+    return x ^ (x >> 15u);
   }
   bool hit(float3 p, thread Hit& h) {
     h = Hit{length(p) - 1.f, normalize(p)};

@@ -755,6 +755,48 @@ const Emitter = struct {
         };
     }
 
+    fn compoundOp(op: Ir.AssignOp) Ir.BinaryOp {
+        return switch (op) {
+            .set => unreachable,
+            .add => .add,
+            .sub => .sub,
+            .mul => .mul,
+            .div => .div,
+            .rem => .rem,
+            .shl => .shl,
+            .shr => .shr,
+            .bit_and => .bit_and,
+            .bit_or => .bit_or,
+            .bit_xor => .bit_xor,
+        };
+    }
+
+    /// MSL: parentheses C++ compilers ask for (-Wparentheses) though precedence does not
+    /// need them: around `+` or `-` under a shift, a shift under `&`, `|` or `^`, `&` under
+    /// `|` or `^`, and `&&` under `||`.
+    fn mslParens(e: *Emitter, mi: u32, op: Ir.BinaryOp, child: Ir.ExprId) bool {
+        if (!e.isMsl()) return false;
+        var x = child;
+        var m = mi;
+        while (true) {
+            const ex = e.mod(m).expr(x);
+            switch (ex.data) {
+                .alias => |r| {
+                    m = r.module;
+                    x = e.mod(r.module).aliases[r.index].value;
+                },
+                .binary => |d| return switch (op) {
+                    .shl, .shr => d.op == .add or d.op == .sub,
+                    .bit_and => d.op == .shl or d.op == .shr,
+                    .bit_or, .bit_xor => d.op == .shl or d.op == .shr or d.op == .bit_and or (d.op != op and (d.op == .bit_or or d.op == .bit_xor)),
+                    .log_or => d.op == .log_and,
+                    else => false,
+                },
+                else => return false,
+            }
+        }
+    }
+
     fn assignText(op: Ir.AssignOp) []const u8 {
         return switch (op) {
             .set => "=",
@@ -870,12 +912,23 @@ const Emitter = struct {
             },
             .binary => |d| {
                 const p = binaryPrec(d.op);
-                try e.expr(mi, d.lhs, p);
+                try e.expr(mi, d.lhs, if (e.mslParens(mi, d.op, d.lhs)) prec_postfix else p);
                 // C++ has no `^^`: on two bools it is `!=`
                 try e.print(" {s} ", .{if (e.isMsl() and d.op == .log_xor) "!=" else binaryText(d.op)});
-                try e.expr(mi, d.rhs, p + 1);
+                try e.expr(mi, d.rhs, if (e.mslParens(mi, d.op, d.rhs)) prec_postfix else p + 1);
             },
             .assign => |d| {
+                // Metal's compound operators take a reference, which a swizzle is not:
+                // `v.xy *= m` is written `v.xy = v.xy * (m)`
+                if (e.isMsl() and d.op != .set and e.mod(mi).expr(d.lhs).data == .swizzle) {
+                    const op = compoundOp(d.op);
+                    try e.expr(mi, d.lhs, prec_ternary + 1);
+                    try e.put(" = ");
+                    try e.expr(mi, d.lhs, binaryPrec(op));
+                    try e.print(" {s} ", .{binaryText(op)});
+                    try e.expr(mi, d.rhs, binaryPrec(op) + 1);
+                    return;
+                }
                 try e.expr(mi, d.lhs, prec_ternary + 1);
                 try e.print(" {s} ", .{assignText(d.op)});
                 try e.expr(mi, d.rhs, prec_assign);
@@ -1006,7 +1059,7 @@ const Emitter = struct {
         var pre: std.ArrayList(u8) = .empty;
         try pre.appendSlice(e.a, msl.header);
         var it = e.helpers.iterator();
-        while (it.next()) |h| try pre.appendSlice(e.a, if (h == .sampler and e.stage == .vertex) msl.sampler_vertex else msl.helperText(h));
+        while (it.next()) |h| try pre.appendSlice(e.a, msl.helperIn(h, e.stage == .vertex));
         const shift: u32 = @intCast(std.mem.count(u8, pre.items, "\n"));
         for (e.lines.items) |*l| l.line += shift;
         try e.put(pre.items);
@@ -1381,7 +1434,17 @@ const Emitter = struct {
         if (eq(u8, n, "radians")) e.helpers.insert(.radians);
         if (eq(u8, n, "degrees")) e.helpers.insert(.degrees);
         if (std.mem.startsWith(u8, n, "lessThan") or std.mem.startsWith(u8, n, "greaterThan") or eq(u8, n, "equal") or eq(u8, n, "notEqual")) e.helpers.insert(.relational);
-        if (f.kind == .texture) e.helpers.insert(.sampler);
+        if (f.kind == .texture) {
+            e.helpers.insert(.sampler);
+            e.helpers.insert(if (eq(u8, n, "texture"))
+                (if (f.params.len == 3) msl.Helper.tex_bias else .tex)
+            else if (eq(u8, n, "textureLod"))
+                .tex_lod
+            else if (eq(u8, n, "texelFetch"))
+                .texel_fetch
+            else
+                .tex_size);
+        }
         const sized: ?u8 = if (ret.matrixLen()) |k| k else null;
         if (sized) |k| {
             if (eq(u8, n, "matrixCompMult")) e.helpers.insert(switch (k) {

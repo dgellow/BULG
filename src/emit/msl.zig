@@ -123,6 +123,11 @@ const reserved_set = std.StaticStringMap(void).initComptime(blk: {
 /// A piece of the prelude, written only when the text uses it.
 pub const Helper = enum {
     sampler,
+    tex,
+    tex_bias,
+    tex_lod,
+    texel_fetch,
+    tex_size,
     mod,
     radians,
     degrees,
@@ -156,29 +161,25 @@ pub const Helper = enum {
     }
 };
 
-/// The sampler in a vertex stage: there are no derivatives there, so `texture` reads level 0
-/// (as GLSL defines it for vertex shaders).
-pub const sampler_vertex =
-    \\struct sampler2D { texture2d<float> t; sampler s; };
-    \\static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv, level(0.0f)); }
-    \\static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, level(0.0f)); }
-    \\static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-    \\static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-    \\static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
-    \\
-;
+/// A helper's text in a stage: in a vertex stage there are no derivatives, so `texture`
+/// reads level 0 (as GLSL defines it there).
+pub fn helperIn(h: Helper, vertex: bool) []const u8 {
+    if (vertex) switch (h) {
+        .tex => return "static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv, level(0.0f)); }\n",
+        .tex_bias => return "static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, level(0.0f)); }\n",
+        else => {},
+    };
+    return helperText(h);
+}
 
 pub fn helperText(h: Helper) []const u8 {
     return switch (h) {
-        .sampler =>
-        \\struct sampler2D { texture2d<float> t; sampler s; };
-        \\static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }
-        \\static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }
-        \\static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }
-        \\static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }
-        \\static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }
-        \\
-        ,
+        .sampler => "struct sampler2D { texture2d<float> t; sampler s; };\n",
+        .tex => "static inline float4 texture(sampler2D x, float2 uv) { return x.t.sample(x.s, uv); }\n",
+        .tex_bias => "static inline float4 texture(sampler2D x, float2 uv, float b) { return x.t.sample(x.s, uv, bias(b)); }\n",
+        .tex_lod => "static inline float4 textureLod(sampler2D x, float2 uv, float l) { return x.t.sample(x.s, uv, level(l)); }\n",
+        .texel_fetch => "static inline float4 texelFetch(sampler2D x, int2 p, int l) { return x.t.read(uint2(p), uint(l)); }\n",
+        .tex_size => "static inline int2 textureSize(sampler2D x, int l) { return int2(int(x.t.get_width(uint(l))), int(x.t.get_height(uint(l)))); }\n",
         // GLSL's mod floors; Metal's fmod truncates
         .mod =>
         \\template<typename T> inline T mod(T x, T y) { return x - y * floor(x / y); }
