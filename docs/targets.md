@@ -28,6 +28,11 @@ again after a deliberate change, and the diff is the review.
   the text becomes `name_2` (functions of one name with different parameters are
   overloads and keep it).
 - **Aliases** are printed where they are used, as their expression.
+- **Loose uniforms are one block.** A program's uniforms and params that are not samplers
+  and not in a block go into one std140 block, `bulg_Params`: both stages' members, in
+  the order the texts declare them (vertex first), the same block in every stage that
+  reads any of them. A host fills one struct (the generated `Params`) and uploads it once
+  per draw: no uniform is set by name.
 - **No finite-maths assumption:** NaN compares false, and no emitter may assume
   otherwise.
 - **The line map** takes each emitted line back to its source line, and `glsl.mapLog`
@@ -39,6 +44,10 @@ again after a deliberate change, and the diff is the review.
 - The header is `#version 300 es` and `highp` precision for floats, ints and `sampler2D`.
   Precision is the target's business, not the source's.
 - `half` and its vectors and matrices are `float` in v0. Real 16-bit lowering comes later.
+- `bulg_Params` is `layout(std140) uniform bulg_Params { ... };`, its members read by
+  their names. ES 3.00 has no binding qualifier: the host binds it with
+  `glUniformBlockBinding` (Kykeon: 1, after Frame at 0), and gives each sampler its unit
+  with `glUniform1i` once, after linking.
 - Checked by a real driver: `zig build check-gpu` compiles and links the golden texts in
   Chromium's WebGL 2 (ANGLE); `tests/webgl_es300.mjs` does the same for any directory of
   emitted texts.
@@ -79,9 +88,9 @@ The body is the GLSL text with Metal's spellings. Every rule above holds.
   - A uniform block is a struct with std140's offsets: padding where std140 puts a member
     later, `packed_float3` for a vec3 followed by a scalar. Anything that cannot be made
     to agree is refused, never laid out wrong.
-  - Members are read through `bulg_<Block>->`. Loose uniforms are gathered into
-    `bulg_Params` in the order of the text, with Metal's own layout, and read through
-    `bulg_params->`.
+  - Members are read through `bulg_<Block>->`, and `bulg_Params`'s through
+    `bulg_params->`: a struct with the same std140 offsets as GL's block, so one buffer
+    of bytes serves both stages and both backends.
 - **The entry point is `bulg_main`.**
   - Buffers: the blocks from 0 in the order of the text, then `bulg_Params`.
   - Textures and samplers: from 0 in the order of the text.

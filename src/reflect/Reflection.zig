@@ -94,6 +94,9 @@ pub const Attribute = struct {
 pub const Reflection = struct {
     name: []const u8,
     blocks: []const Block,
+    /// `bulg_Params`: the loose uniforms and params of both stages, as one std140 block
+    /// (null: the program has none). Its `module` is the program's name.
+    params_block: ?Block,
     uniforms: []const Uniform,
     samplers: []const Sampler,
     params: []const Param,
@@ -140,9 +143,35 @@ pub fn reflect(s: *const Session, prog: *const Ir.Program, a: std.mem.Allocator)
             break;
         };
     }
+    // bulg_Params, as the emitters declare it
+    const loose = try reach.looseUniforms(s, prog, a);
+    var params_block: ?Block = null;
+    if (loose.len > 0) {
+        const l = try reach.std140Offsets(s, loose, a);
+        const members = try a.alloc(Member, loose.len);
+        var stages: Stages = .{};
+        for (loose, l.offsets, members) |r, off, *mem| {
+            const g = s.modules[r.module].globals[r.index];
+            mem.* = .{
+                .name = g.name,
+                .type = g.type,
+                .offset = off,
+                .size = types.std140(&s.pool, g.type).size,
+                .default = if (g.init != .none) try b.value(r.module, g.init) else null,
+            };
+            for (b.uniforms.items) |u| if (std.mem.eql(u8, u.name, g.name)) {
+                stages = merge(stages, u.stages);
+            };
+            for (b.params.items) |p| if (std.mem.eql(u8, p.name, g.name)) {
+                stages = merge(stages, p.stages);
+            };
+        }
+        params_block = .{ .name = "bulg_Params", .module = prog.name, .size = l.size, .members = members, .stages = stages };
+    }
     return .{
         .name = prog.name,
         .blocks = b.blocks.items,
+        .params_block = params_block,
         .uniforms = b.uniforms.items,
         .samplers = b.samplers.items,
         .params = b.params.items,

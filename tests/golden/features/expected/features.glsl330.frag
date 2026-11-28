@@ -4,7 +4,9 @@ struct Hit {
   vec3 n;
 };
 const float W[3] = float[3](.25, .5, .25);
-uniform vec4 uSite[4];
+layout(std140) uniform bulg_Params {
+  vec4 uSite[4];
+};
 uniform sampler2D uPrev;
 float hh(float x) {
   return x * 2.;

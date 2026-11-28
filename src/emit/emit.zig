@@ -113,6 +113,7 @@ pub fn emitWhy(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, dial
         .r = .{ .s = s, .a = a, .info = info, .specs = .{ .values = prog.specs } },
         .dialect = dialect,
         .stage = stage,
+        .prog = prog,
     };
     errdefer e.text.deinit();
     e.run() catch |err| {
@@ -166,6 +167,7 @@ pub fn metalStage(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, a
         .r = .{ .s = s, .a = a, .info = info, .specs = .{ .values = prog.specs } },
         .dialect = .msl,
         .stage = stage,
+        .prog = prog,
     };
     try e.r.collect();
     const sorted = try e.r.order();
@@ -173,10 +175,11 @@ pub fn metalStage(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, a
     const parts = try e.classify(sorted);
     var blocks: std.ArrayList([]const u8) = .empty;
     for (parts.blocks) |d| try blocks.append(a, e.mod(d.block.module).blocks[d.block.index].name);
+    // bulg_Params: the program's loose uniforms with std140's offsets, given to a stage
+    // that reads any of them
+    try e.loadLoose();
     var fields: std.ArrayList(MetalField) = .empty;
-    var off: u32 = 0;
-    var max_align: u32 = 1;
-    for (parts.params) |r| {
+    if (parts.params.len > 0) for (e.loose, e.loose_offsets) |r, off| {
         const g = e.mod(r.module).globals[r.index];
         var t = g.type;
         var len: u32 = 0;
@@ -185,13 +188,10 @@ pub fn metalStage(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, a
             len = arr.len;
         }
         if (!t.isBuiltin()) return error.Unsupported;
-        const l = msl.layout(t);
-        const stride = msl.alignUp(l.size, l.alignment);
-        off = msl.alignUp(off, l.alignment);
-        max_align = @max(max_align, l.alignment);
+        const l = types.std140(&s.pool, t);
+        const stride = if (len > 0) std.mem.alignForward(u32, l.size, 16) else l.size;
         try fields.append(a, .{ .name = g.name, .type = t, .len = len, .offset = off, .stride = stride });
-        off += if (len == 0) l.size else stride * len;
-    }
+    };
     var textures: std.ArrayList([]const u8) = .empty;
     for (parts.samplers) |r| try textures.append(a, e.mod(r.module).globals[r.index].name);
     var attributes: std.ArrayList(MetalAttribute) = .empty;
@@ -202,7 +202,7 @@ pub fn metalStage(s: *const Session, prog: *const Ir.Program, stage: Ir.Stage, a
     return .{
         .blocks = blocks.items,
         .params = fields.items,
-        .params_size = if (fields.items.len == 0) 0 else msl.alignUp(off, max_align),
+        .params_size = if (fields.items.len == 0) 0 else e.loose_size,
         .textures = textures.items,
         .attributes = attributes.items,
     };
@@ -258,6 +258,13 @@ const Emitter = struct {
     cur_fn: Ir.Function = undefined,
     dialect: Dialect,
     stage: Ir.Stage,
+    prog: *const Ir.Program,
+    /// the program's loose uniforms and params (`bulg_Params`), both stages', and their
+    /// std140 offsets; the block is declared once, where the first of them would be
+    loose: []const Ir.Ref = &.{},
+    loose_offsets: []const u32 = &.{},
+    loose_size: u32 = 0,
+    loose_done: bool = false,
     /// what `error.Unsupported` was about
     why: []const u8 = "",
     /// MSL: the pieces of the prelude the text uses
@@ -310,7 +317,16 @@ const Emitter = struct {
         try e.lines.append(e.a, entry);
     }
 
+    fn loadLoose(e: *Emitter) Error!void {
+        e.loose = try reach.looseUniforms(e.s, e.prog, e.a);
+        const l = try reach.std140Offsets(e.s, e.loose, e.a);
+        e.loose_offsets = l.offsets;
+        e.loose_size = l.size;
+        for (e.loose) |r| if (e.s.pool.structOf(e.mod(r.module).globals[r.index].type) != null) return e.unsupported("a uniform of a struct type outside a block");
+    }
+
     fn run(e: *Emitter) Error!void {
+        try e.loadLoose();
         if (e.dialect == .msl) return e.runMsl();
         const header = if (e.dialect == .es300) header_es300 else header_330;
         try e.put(header);
@@ -432,6 +448,7 @@ const Emitter = struct {
             },
             .global => |r| {
                 const g = e.mod(r.module).globals[r.index];
+                if (reach.isLoose(g)) return e.paramsBlock(r);
                 try e.mark(r.module, g.tok);
                 if (g.location) |loc| try e.print("layout(location={d}) ", .{loc});
                 if (g.flat) try e.put("flat ");
@@ -495,6 +512,26 @@ const Emitter = struct {
     fn ident(e: *Emitter, n: []const u8) Error![]const u8 {
         if (e.isMsl() and n.len > 0 and msl.reserved(n)) return std.fmt.allocPrint(e.a, "bulg_{s}", .{n}) catch error.OutOfMemory;
         return n;
+    }
+
+    /// GLSL: the program's `bulg_Params` block, all its members (both stages'), where the
+    /// first loose uniform of this stage would be declared.
+    fn paramsBlock(e: *Emitter, first: Ir.Ref) Error!void {
+        if (e.loose_done) return;
+        e.loose_done = true;
+        try e.mark(first.module, e.mod(first.module).globals[first.index].tok);
+        try e.put("layout(std140) uniform bulg_Params {");
+        try e.nl();
+        for (e.loose) |r| {
+            const g = e.mod(r.module).globals[r.index];
+            try e.mark(r.module, g.tok);
+            try e.put("  ");
+            try e.declarator(g.type, g.name);
+            try e.put(";");
+            try e.nl();
+        }
+        try e.put("};");
+        try e.nl();
     }
 
     /// `T name` (arrays as `T name[N]`; in MSL `array<T, N> name`).
@@ -860,11 +897,13 @@ const Emitter = struct {
                     // the stage's parameter buffer
                     if (g.block) |bi| {
                         try e.print("bulg_{s}->", .{e.declName(.{ .block = .{ .module = r.module, .index = bi } })});
-                    } else if ((g.kind == .uniform or g.kind == .param) and g.type != .sampler2D) {
+                    } else if (reach.isLoose(g)) {
                         try e.put("bulg_params->");
                     }
                 }
-                try e.put(e.declName(.{ .global = r }));
+                // a member of bulg_Params has its own name, as the block declares it
+                const g = e.mod(r.module).globals[r.index];
+                try e.put(if (reach.isLoose(g)) g.name else e.declName(.{ .global = r }));
             },
             .alias => |r| try e.expr(r.module, e.mod(r.module).aliases[r.index].value, min),
             .call => |d| {
@@ -996,20 +1035,9 @@ const Emitter = struct {
             .global => |r| if (try e.atProgramScope(r)) try e.mslGlobal(r, true),
             .function => {},
         };
-        if (params.len > 0) {
-            try e.put("struct bulg_Params {");
-            try e.nl();
-            for (params) |r| {
-                const g = e.mod(r.module).globals[r.index];
-                try e.mark(r.module, g.tok);
-                try e.put("  ");
-                try e.declarator(g.type, e.declName(.{ .global = r }));
-                try e.put(";");
-                try e.nl();
-            }
-            try e.put("};");
-            try e.nl();
-        }
+        // the program's loose uniforms, both stages', with std140's offsets: one buffer
+        // serves both stages, and GL's block of the same name
+        if (params.len > 0) try e.mslStruct("bulg_Params", e.loose, e.loose_offsets, e.loose_size, false);
 
         // the stage
         try e.put("struct bulg_Stage {");
@@ -1175,13 +1203,23 @@ const Emitter = struct {
         const m = e.mod(mi);
         const b = m.blocks[bi];
         try e.mark(mi, b.tok);
-        try e.print("struct {s} {{", .{e.declName(.{ .block = .{ .module = mi, .index = bi } })});
+        const refs = try e.a.alloc(Ir.Ref, b.members.len);
+        for (b.members, refs) |mem, *r| r.* = .{ .module = mi, .index = mem };
+        try e.mslStruct(e.declName(.{ .block = .{ .module = mi, .index = bi } }), refs, b.offsets, b.size, true);
+    }
+
+    /// A struct with std140's offsets: a uniform block, or `bulg_Params`. Metal's own
+    /// layout agrees for what std140 lays out the same; padding is added where std140 puts
+    /// a member later, a vec3 followed by a scalar is a packed_float3, and anything that
+    /// cannot be made to agree is refused rather than laid out wrong.
+    fn mslStruct(e: *Emitter, struct_name: []const u8, members: []const Ir.Ref, offsets: []const u32, size: u32, decl_names: bool) Error!void {
+        try e.print("struct {s} {{", .{struct_name});
         try e.nl();
         var off: u32 = 0;
         var pads: u32 = 0;
-        for (b.members, b.offsets, 0..) |mem, want, k| {
-            const g = m.globals[mem];
-            const next = if (k + 1 < b.offsets.len) b.offsets[k + 1] else b.size;
+        for (members, offsets, 0..) |ref, want, k| {
+            const g = e.mod(ref.module).globals[ref.index];
+            const next = if (k + 1 < offsets.len) offsets[k + 1] else size;
             var t = g.type;
             var count: u32 = 1;
             if (e.s.pool.arrayOf(t)) |a| {
@@ -1201,9 +1239,9 @@ const Emitter = struct {
                 try e.nl();
                 pads += 1;
             }
-            try e.mark(mi, g.tok);
+            try e.mark(ref.module, g.tok);
             try e.put("  ");
-            const member = e.declName(.{ .global = .{ .module = mi, .index = mem } });
+            const member = if (decl_names) e.declName(.{ .global = ref }) else g.name;
             if (packed3) {
                 try e.print("packed_{s} {s};", .{ msl.typeName(t), member });
             } else try e.declarator(g.type, member);
@@ -1211,8 +1249,8 @@ const Emitter = struct {
             try e.nl();
             off = want + (if (packed3) 12 else l.size * count);
         }
-        if (off < b.size) {
-            try e.print("  char bulg_pad{d}[{d}];", .{ pads, b.size - off });
+        if (off < size) {
+            try e.print("  char bulg_pad{d}[{d}];", .{ pads, size - off });
             try e.nl();
         }
         try e.put("};");

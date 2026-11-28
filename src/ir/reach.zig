@@ -360,3 +360,43 @@ pub fn stage(s: *const Session, prog: *const Ir.Program, info: Ir.StageInfo, a: 
     try r.collect();
     return r;
 }
+
+/// A program's loose uniforms and params (not samplers, not in a block): what its
+/// `bulg_Params` block holds, the same in both stages. Both stages' in the order their
+/// texts declare them, the vertex stage first; one entry a name (GL links by name).
+pub fn looseUniforms(s: *const Session, prog: *const Ir.Program, a: std.mem.Allocator) Error![]const Ir.Ref {
+    var out: std.ArrayList(Ir.Ref) = .empty;
+    for ([_]?Ir.StageInfo{ prog.vertex, prog.fragment }) |maybe| {
+        const info = maybe orelse continue;
+        const r = try stage(s, prog, info, a);
+        for (try ordered(s, r, a)) |d| {
+            if (d != .global) continue;
+            const g = s.modules[d.global.module].globals[d.global.index];
+            if (!isLoose(g)) continue;
+            for (out.items) |o| {
+                if (std.mem.eql(u8, s.modules[o.module].globals[o.index].name, g.name)) break;
+            } else try out.append(a, d.global);
+        }
+    }
+    return out.items;
+}
+
+/// Is `g` one of a `bulg_Params` block's members?
+pub fn isLoose(g: Ir.Global) bool {
+    return (g.kind == .uniform or g.kind == .param) and g.block == null and g.type != .sampler2D;
+}
+
+/// The std140 offsets of `members` laid out in order, and the block's size.
+pub fn std140Offsets(s: *const Session, members: []const Ir.Ref, a: std.mem.Allocator) Error!struct { offsets: []const u32, size: u32 } {
+    const offsets = try a.alloc(u32, members.len);
+    var off: u32 = 0;
+    var max_align: u32 = 16;
+    for (members, offsets) |r, *o| {
+        const l = types.std140(&s.pool, s.modules[r.module].globals[r.index].type);
+        off = std.mem.alignForward(u32, off, l.alignment);
+        o.* = off;
+        off += l.size;
+        max_align = @max(max_align, l.alignment);
+    }
+    return .{ .offsets = offsets, .size = std.mem.alignForward(u32, off, max_align) };
+}
