@@ -23,13 +23,16 @@ each program `p` it has:
 - `shaders.p.vertex` and `shaders.p.fragment`, an `EnumArray` of texts by dialect,
   complete and ready for `glShaderSource`;
 - `shaders.p.samplers.uName`, each sampler's texture unit;
+- `shaders.p.Params`, the program's `bulg_Params` block as an `extern struct` (std140,
+  with the params' defaults), and `shaders.p.params`, each member's offset and size, for
+  code that fills it by name;
 - `shaders.p.info`, and `shaders.programs.get(.p)` for code that picks a program at run
   time. It lists the blocks, samplers in slot order, loose uniforms, params (with
   defaults and metadata), spec constants (the variant's value, the default, and
   metadata), vertex inputs, and the files the program was made from.
 - with `msl` among the dialects, `shaders.p.metal.vertex` and `.fragment`: what a Metal
   host binds. That is each block's buffer index, the `bulg_Params` fields' offsets and
-  strides in Metal's layout and its size, the texture and sampler indices, and the vertex
+  strides (std140, as on GL) and its size, the texture and sampler indices, and the vertex
   attributes (docs/targets.md, MSL).
 
 Shared by every program:

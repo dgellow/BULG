@@ -264,3 +264,59 @@ test "MSL spells out what Metal lacks" {
     try testing.expectEqual(@as(u32, 64), m.params_size);
     try testing.expectEqual(@as(usize, 0), m.textures.len);
 }
+
+test "loose uniforms are one std140 block, the same in both stages" {
+    var s = try session(&.{
+        .{ "v.bulg", "uniform float uA;\nuniform vec3 uB;\nout vec2 vUv;\nvoid main(){ vUv = vec2(uA); gl_Position = vec4(uB, 1.); }\n" },
+        .{
+            "f.bulg",
+            \\in vec2 vUv;
+            \\out vec4 o;
+            \\uniform float uC;
+            \\uniform vec3 uB;
+            \\void main(){ o = vec4(uB * uC, vUv.x); }
+            \\program p { vertex "v"; fragment "f"; }
+        },
+    });
+    defer s.deinit();
+    const p = s.findProgram("p").?;
+    const block =
+        \\layout(std140) uniform bulg_Params {
+        \\  float uA;
+        \\  vec3 uB;
+        \\  float uC;
+        \\};
+    ;
+    for ([_]@import("../ir/Ir.zig").Stage{ .vertex, .fragment }) |st| {
+        var out = try emit.emit(&s, p, st, .es300, testing.allocator);
+        defer out.deinit(testing.allocator);
+        if (std.mem.indexOf(u8, out.text, block) == null) {
+            std.debug.print("no block in:\n{s}\n", .{out.text});
+            return error.TestUnexpectedResult;
+        }
+        try testing.expect(std.mem.indexOf(u8, out.text, "uniform float") == null);
+    }
+    // Metal: the same offsets (uB at 16, uC packed after it at 28)
+    var m = try emit.emit(&s, p, .fragment, .msl, testing.allocator);
+    defer m.deinit(testing.allocator);
+    const want =
+        \\struct bulg_Params {
+        \\  float uA;
+        \\  char bulg_pad0[12];
+        \\  packed_float3 uB;
+        \\  float uC;
+        \\};
+    ;
+    if (std.mem.indexOf(u8, m.text, want) == null) {
+        std.debug.print("not in:\n{s}\n", .{m.text});
+        return error.TestUnexpectedResult;
+    }
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const r = try @import("../reflect/Reflection.zig").reflect(&s, p, arena.allocator());
+    const pb = r.params_block.?;
+    try testing.expectEqual(@as(usize, 3), pb.members.len);
+    try testing.expectEqual(@as(u32, 16), pb.members[1].offset);
+    try testing.expectEqual(@as(u32, 28), pb.members[2].offset);
+    try testing.expectEqual(@as(u32, 32), pb.size);
+}

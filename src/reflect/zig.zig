@@ -94,6 +94,12 @@ const Gen = struct {
         for (g.blocks.items) |x| if (std.mem.eql(u8, x[0], b.module) and std.mem.eql(u8, x[1], b.name)) return;
         try g.blocks.append(g.a, .{ b.module, b.name });
         try g.print("    /// `{s}`, from {s} ({d} bytes)\n    pub const {f} = extern struct {{\n", .{ b.name, b.module, b.size, std.zig.fmtId(b.name) });
+        try g.blockBody(b);
+    }
+
+    /// A block's fields, its padding and the checks of its layout (from after the
+    /// `extern struct {` line to the closing `};`).
+    fn blockBody(g: *Gen, b: R.Block) Error!void {
         var off: u32 = 0;
         var pad: u32 = 0;
         for (b.members) |m| {
@@ -201,6 +207,15 @@ const Gen = struct {
             }
             try g.put("    });\n");
         }
+        if (r.params_block) |pb| {
+            // bulg_Params: what the host fills, uploads as one buffer and binds at 1 (GL)
+            // or after the stage's blocks (Metal)
+            try g.print("    /// `bulg_Params`: its loose uniforms and params, std140 ({d} bytes)\n    pub const Params = extern struct {{\n", .{pb.size});
+            try g.blockBody(pb);
+            try g.put("    /// each member's offset and size in `Params`, for code that fills it by name\n    pub const params: []const ParamsField = &.{\n");
+            for (pb.members) |m| try g.print("        .{{ .name = \"{s}\", .offset = {d}, .size = {d} }},\n", .{ m.name, m.offset, m.size });
+            try g.put("    };\n");
+        } else try g.put("    pub const Params = extern struct {};\n    pub const params: []const ParamsField = &.{};\n");
         if (std.mem.indexOfScalar(emit.Dialect, g.options.dialects, .msl) != null) try g.metal(p);
         // samplers by name, as their slots
         try g.put("    /// each sampler's texture unit\n    pub const samplers = struct {\n");
@@ -339,6 +354,8 @@ const prelude =
     \\pub const Spec = struct { name: []const u8, type: Type, value: f64, default: f64, meta: []const Meta };
     \\pub const Input = struct { name: []const u8, type: Type, location: ?u32 };
     \\
+    \\/// A member of a program's `bulg_Params` block, by name.
+    \\pub const ParamsField = struct { name: []const u8, offset: u32, size: u32 };
     \\/// A loose uniform in an MSL stage's `bulg_Params` (len 0: one value).
     \\pub const MetalField = struct { name: []const u8, type: Type, len: u32, offset: u32, stride: u32 };
     \\pub const MetalAttribute = struct { name: []const u8, type: Type, index: u32 };
