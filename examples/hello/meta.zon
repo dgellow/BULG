@@ -1,0 +1,11 @@
+// The host's own metadata keys: with this schema, a key that neither BULG nor this file
+// has is a build error (a typo is caught when the shaders are built, not when a panel
+// ignores it).
+.{ .keys = .{
+    .{
+        .name = "ease",
+        .doc = "how a panel's slider maps to the value: evenly, or slow at the ends",
+        .on = .{.param},
+        .args = .{.{ .kind = .word, .words = .{ "lin", "smooth" } }},
+    },
+} }

@@ -4,12 +4,17 @@ const std = @import("std");
 const Session = @import("../Session.zig");
 const Diagnostic = @import("../Diagnostic.zig");
 const Ir = @import("../ir/Ir.zig");
+const meta = @import("meta.zig");
 const testing = std.testing;
 
 const File = struct { []const u8, []const u8 };
 
 fn analyze(files: []const File) !Session {
-    var s: Session = .init(testing.allocator, .{});
+    return analyzeWith(files, null);
+}
+
+fn analyzeWith(files: []const File, schema: ?*const meta.Schema) !Session {
+    var s: Session = .init(testing.allocator, .{ .meta_schema = schema });
     errdefer s.deinit();
     for (files) |f| _ = try s.addSource(f[0], f[1]);
     try s.analyze();
@@ -18,7 +23,11 @@ fn analyze(files: []const File) !Session {
 
 /// The codes `files` give, in order (and each message printed when they differ).
 fn expectCodes(files: []const File, codes: []const Diagnostic.Code) !void {
-    var s = try analyze(files);
+    return expectCodesWith(files, null, codes);
+}
+
+fn expectCodesWith(files: []const File, schema: ?*const meta.Schema, codes: []const Diagnostic.Code) !void {
+    var s = try analyzeWith(files, schema);
     defer s.deinit();
     var got: std.ArrayList(Diagnostic.Code) = .empty;
     defer got.deinit(testing.allocator);
@@ -145,6 +154,84 @@ test "metadata" {
     try bad("float x = 1. { range(0., 1.) };", &.{.misplaced_declaration});
     try bad("float y; param float p = 1. { range(0., y) };", &.{.not_constant});
     try ok("const float MAX = 4.; param float p = 1. { range(0., MAX), curve(exp) };");
+    // the core keys: their arguments, what they are for, and the default in the range
+    try ok("param vec3 tint = vec3(.2, .4, .9) { color, range(0., 1.), step(.01), group(\"Light\"), unit(\"lm\") }; spec int N = 48 { range(16, 96), tiers(16, 48, 96) };");
+    try bad("param float p = 5. { range(0., 4.) };", &.{.bad_metadata});
+    try bad("param vec2 p = vec2(.5, 2.) { range(0., 1.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { range(2., 1.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { range(0.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { range(0., \"one\") };", &.{.bad_metadata});
+    try bad("param float p = 1. { step(0.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { label(Zoom) };", &.{.bad_metadata});
+    try bad("param float p = 1. { color };", &.{.bad_metadata});
+    try bad("param vec3 p = vec3(1.) { color(1.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { tiers(1., 2.) };", &.{.bad_metadata});
+    try bad("spec int N = 4 { tiers(8, 4) };", &.{.bad_metadata});
+    try bad("spec int N = 4 { range(1, 8), tiers(2, 16) };", &.{.bad_metadata});
+    try bad("param bool p = true { range(0., 1.) };", &.{.bad_metadata});
+    try bad("param float p = 1. { label(\"a\"), label(\"b\") };", &.{.bad_metadata});
+    // without a schema the host's keys pass as they are
+    try ok("param float p = 1. { anything(1, \"two\", three), rnage(0., 2.) };");
+}
+
+test "metadata with a host schema" {
+    const schema: meta.Schema = .{ .keys = &.{
+        .{ .name = "mod", .on = &.{.param}, .args = &.{ .{ .kind = .string, .words = &.{ "music.bass", "journey.depth" } }, .{ .kind = .number, .optional = true } } },
+        .{ .name = "curve", .args = &.{.{ .kind = .word, .words = &.{ "lin", "exp" } }} },
+        .{ .name = "hide" },
+        .{ .name = "tag", .repeat = true, .args = &.{.{ .kind = .word, .rest = true }} },
+    } };
+    try std.testing.expectEqual(@as(?[]const u8, null), schema.problem());
+    const f = struct {
+        fn run(sc: *const meta.Schema, text: []const u8, codes: []const Diagnostic.Code) !void {
+            return expectCodesWith(&.{.{ "m.bulg", text }}, sc, codes);
+        }
+    }.run;
+    try f(&schema, "param float p = 1. { range(0., 2.), mod(\"music.bass\"), mod(\"journey.depth\", .5), curve(exp), hide, tag(a, b), tag(c) };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod(\"music.bass\", .5), curve(exp), hide, tag(a, b), tag(c) };", &.{});
+    // a typo is an error, with the key it was likely meant to be
+    try f(&schema, "param float p = 1. { rnage(0., 2.) };", &.{.unknown_metadata});
+    try f(&schema, "param float p = 1. { curve(log) };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { curve(\"exp\") };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod(\"music.bass\", 1., 2.) };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod(\"music.bas\") };", &.{.bad_metadata});
+    try f(&schema, "uniform float u { mod(\"music.bass\") };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { hide(1) };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { tag };", &.{.bad_metadata});
+    // the hint names the near key
+    var s = try analyzeWith(&.{.{ "m.bulg", "param float p = 1. { lable(\"x\") };" }}, &schema);
+    defer s.deinit();
+    try std.testing.expectEqualStrings("did you mean `label`?", s.diagnostics()[0].hint.?);
+    // unsound schemas
+    const bad_schemas = [_]meta.Schema{
+        .{ .keys = &.{.{ .name = "range" }} },
+        .{ .keys = &.{ .{ .name = "a" }, .{ .name = "a" } } },
+        .{ .keys = &.{.{ .name = "a", .args = &.{ .{ .kind = .number, .rest = true }, .{ .kind = .number } } }} },
+        .{ .keys = &.{.{ .name = "a", .args = &.{ .{ .kind = .number, .optional = true }, .{ .kind = .number } } }} },
+        .{ .keys = &.{.{ .name = "a", .args = &.{.{ .kind = .number, .words = &.{"x"} }} }} },
+        .{ .keys = &.{.{ .name = "9a" }} },
+        .{ .keys = &.{.{ .name = "a", .on = &.{} }} },
+    };
+    for (bad_schemas) |b| try std.testing.expect(b.problem() != null);
+}
+
+test "a schema from ZON" {
+    var arena_state: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena_state.deinit();
+    var diags: std.zon.parse.Diagnostics = undefined;
+    var why: []const u8 = "";
+    const sc = try meta.Schema.parse(testing.allocator, arena_state.allocator(),
+        \\.{ .keys = .{
+        \\    .{ .name = "mod", .on = .{.param}, .doc = "follows a signal",
+        \\       .args = .{ .{ .kind = .string }, .{ .kind = .number, .optional = true } } },
+        \\    .{ .name = "curve", .args = .{ .{ .kind = .word, .words = .{ "lin", "exp" } } } },
+        \\} }
+    , &diags, &why);
+    try std.testing.expectEqual(@as(usize, 2), sc.keys.len);
+    try std.testing.expectEqualStrings("exp", sc.find("curve").?.args[0].words[1]);
+    try std.testing.expectError(error.BadSchema, meta.Schema.parse(testing.allocator, arena_state.allocator(), ".{ .keys = .{ .{ .name = \"step\" } } }", &diags, &why));
+    try std.testing.expectError(error.ParseZon, meta.Schema.parse(testing.allocator, arena_state.allocator(), ".{ .kees = .{} }", &diags, &why));
 }
 
 test "statements" {

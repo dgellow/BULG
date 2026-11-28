@@ -17,17 +17,22 @@ const Parser = @import("syntax/Parser.zig");
 const types = @import("sema/types.zig");
 const Ir = @import("ir/Ir.zig");
 const Checker = @import("sema/Checker.zig");
+const meta = @import("sema/meta.zig");
 
 pub const Error = error{OutOfMemory};
 
 pub const Options = struct {
     limits: Limits = .{},
+    /// the host's metadata keys: with a schema, keys neither it nor BULG has are errors
+    /// (sema/meta.zig). It must outlive the session.
+    meta_schema: ?*const meta.Schema = null,
 };
 
 const Session = @This();
 
 arena_state: std.heap.ArenaAllocator,
 limits: Limits,
+meta_schema: ?*const meta.Schema,
 sources: std.ArrayList(Source) = .empty,
 asts: std.ArrayList(Ast) = .empty,
 diags: Diagnostic.List,
@@ -42,6 +47,7 @@ pub fn init(gpa: std.mem.Allocator, options: Options) Session {
     return .{
         .arena_state = .init(gpa),
         .limits = options.limits,
+        .meta_schema = options.meta_schema,
         .diags = .{ .limit = options.limits.diagnostics },
     };
 }
@@ -74,6 +80,7 @@ pub fn analyze(s: *Session) Error!void {
     std.debug.assert(!s.analyzed);
     s.analyzed = true;
     try Checker.run(s);
+    try meta.check(s, s.meta_schema);
 }
 
 pub fn diagnostics(s: *const Session) []const Diagnostic {

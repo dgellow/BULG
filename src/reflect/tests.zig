@@ -83,6 +83,7 @@ test "blocks, samplers, uniforms, params, specs and the stages' interfaces" {
     try testing.expectEqual(@as(usize, 1), r.params.len);
     const tint = r.params[0];
     try testing.expectEqualStrings("tint", tint.name);
+    try testing.expectEqualStrings("f", tint.module);
     try testing.expectEqual(@as(f32, 0.25), tint.default[2].float);
     try testing.expectEqual(@as(usize, 3), tint.meta.len);
     try testing.expectEqualStrings("range", tint.meta[0].key);
@@ -133,7 +134,7 @@ test "the generated Zig compiles and says what reflection says" {
         "uRot: [3][4]f32 = .{ .{ 1, 0, 0, 0 }, .{ 0, 1, 0, 0 }, .{ 0, 0, 1, 0 } },",
         "std.debug.assert(@offsetOf(@This(), \"uRot\") == 32);",
         "pub const uHeight = 0;",
-        ".{ .name = \"tint\", .type = .vec3, .default = &.{ 1, 0.5, 0.25 }",
+        ".{ .name = \"tint\", .module = \"f\", .type = .vec3, .default = &.{ 1, 0.5, 0.25 }",
         ".{ .key = \"curve\", .args = &.{ .{ .word = \"exp\" } } }",
         ".{ .name = \"STEPS\", .type = .int, .value = 96, .default = 48",
         "pub const Program = enum {",

@@ -39,6 +39,11 @@ Language for Graphics, and its files are `.bulg`.
   - no recursion.
 - Programs: templates and parents, stages linked from their modules, `extern`s filled by
   exactly one definition, spec values, what each stage may use.
+- Metadata: the core keys (`range`, `step`, `label`, `group`, `unit`, `color`, `tiers`)
+  are checked: their arguments, the declarations they are for, a default or tier outside
+  its `range`, a key given twice (E0230). A host's schema of its own keys
+  (`MetaSchema`, ZON) makes an unknown key an error (E0231, with the nearest key as a
+  hint) and has its keys' arguments checked.
 
 ### API
 - `parse` (with `Parser`): a whole tree even when there are errors; recovery at the end of
@@ -46,13 +51,18 @@ Language for Graphics, and its files are `.bulg`.
 - `Ast`: a flat node array, lists in `extra`, every node tied to a token, literals as
   written. `Ast.print` writes canonical text that parses back to the same text and the
   same tree; `printWith(.{ .all_parens = true })` prints the tree's shape.
-- Diagnostic codes E0100-E0107 for parsing, E0200-E0229 for checking and linking.
+- Diagnostic codes E0100-E0107 for parsing, E0200-E0231 for checking and linking.
 - `Session`: sources in, then `analyze`; `modules` (the typed IR, `Ir.Module`) and
   `programs` (`Ir.Program`: per stage, the modules, `main`, the extern fills, the reachable
   functions, what the stage uses). Everything in the session's arena.
 - `types` (the built-in types at fixed indices, interned structs and arrays, std140) and
   `builtins` (every overload, expanded at compile time).
 - The `bulg` command: `parse`, `check`, `emit`, `gen`, `reflect` and `print [--shape]`.
+- `Session.Options.meta_schema`; `MetaSchema.parse` (ZON) and `MetaSchema.problem`;
+  `meta.core`, the core keys as a schema.
+- `edit.setDefault`: a param's default rewritten in its source text, everything else
+  kept; `bulg set-default` (one value, or `--from` a file of them) checks the tree with
+  the new values before it writes. `bulg check` and `gen` take `--meta-schema`.
 - `Session.stageChecked`, `programChecked`; `Diagnostic.List.errorsIn` (per source, dropped
   ones included).
 - `Source` (line and column of a span), `Diagnostic` (stable codes E0001-E0007, a list with
@@ -70,7 +80,8 @@ Language for Graphics, and its files are `.bulg`.
   `std`.
 - `reflection_json.write`: the same as JSON, `bulg.reflection/1`.
 - `addShaderTree` (build.zig): a directory of `.bulg` files as a Zig module, made at
-  build time. `examples/hello` uses it, and the check builds and tests it.
+  build time; `.meta_schema` names the host's metadata keys. Each param in the reflection
+  names the module that declares it. `examples/hello` uses it, and the check builds and tests it.
 - A fixed-buffer test: the golden world tree is checked, emitted and reflected in
   1 MiB, using about 350 KiB.
 

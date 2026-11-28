@@ -102,6 +102,11 @@ pub const Code = enum(u16) {
     wrong_stage = 228,
     /// `spec NAME = value;` in a program, for a NAME that is no spec constant
     unknown_spec = 229,
+    /// metadata with the wrong arguments for its key, on a declaration it is not for, or
+    /// given twice; a default outside its `range`
+    bad_metadata = 230,
+    /// a metadata key that neither BULG nor the host's schema has (only with a schema)
+    unknown_metadata = 231,
     _,
 
     /// `E0001`

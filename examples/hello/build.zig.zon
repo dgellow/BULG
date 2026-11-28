@@ -6,5 +6,5 @@
     .dependencies = .{
         .bulg = .{ .path = "../.." },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "src", "shaders" },
+    .paths = .{ "build.zig", "build.zig.zon", "meta.zon", "src", "shaders" },
 }

@@ -188,6 +188,8 @@ pub const GlobalKind = enum(u8) {
 
 pub const Meta = struct {
     key: []const u8,
+    /// the key's token
+    tok: u32,
     /// the arguments' expressions (constants, strings as literals)
     args: List,
 };

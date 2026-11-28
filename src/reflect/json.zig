@@ -8,7 +8,7 @@
 //!                       "members": [ { "name", "type", "offset", "size", "default": [1, 0] | null } ] } ],
 //!         "uniforms": [ { "name", "type", "stages", "meta" } ],
 //!         "samplers": [ { "name", "slot", "stages" } ],
-//!         "params": [ { "name", "type", "default": [..], "stages", "meta" } ],
+//!         "params": [ { "name", "module", "type", "default": [..], "stages", "meta" } ],
 //!         "specs": [ { "name", "type", "value", "default", "meta" } ],
 //!         "inputs" | "varyings" | "outputs": [ { "name", "type", "location": 0 | null, "flat" } ],
 //!         "uses": { "vertex": [...], "fragment": [...] },
@@ -112,6 +112,7 @@ fn program(s: *const Session, j: *std.json.Stringify, r: R.Reflection) std.Io.Wr
         fba.reset();
         try j.beginObject();
         try field(j, "name", p.name);
+        try field(j, "module", p.module);
         try field(j, "type", typeName(s, p.type, a));
         try j.objectField("default");
         try values(j, p.default);
