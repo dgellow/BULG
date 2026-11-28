@@ -176,7 +176,7 @@ test "metadata" {
 
 test "metadata with a host schema" {
     const schema: meta.Schema = .{ .keys = &.{
-        .{ .name = "mod", .on = &.{.param}, .args = &.{ .{ .kind = .string }, .{ .kind = .number, .optional = true } } },
+        .{ .name = "mod", .on = &.{.param}, .args = &.{ .{ .kind = .string, .words = &.{ "music.bass", "journey.depth" } }, .{ .kind = .number, .optional = true } } },
         .{ .name = "curve", .args = &.{.{ .kind = .word, .words = &.{ "lin", "exp" } }} },
         .{ .name = "hide" },
         .{ .name = "tag", .repeat = true, .args = &.{.{ .kind = .word, .rest = true }} },
@@ -194,8 +194,9 @@ test "metadata with a host schema" {
     try f(&schema, "param float p = 1. { curve(log) };", &.{.bad_metadata});
     try f(&schema, "param float p = 1. { curve(\"exp\") };", &.{.bad_metadata});
     try f(&schema, "param float p = 1. { mod };", &.{.bad_metadata});
-    try f(&schema, "param float p = 1. { mod(\"a\", 1., 2.) };", &.{.bad_metadata});
-    try f(&schema, "uniform float u { mod(\"a\") };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod(\"music.bass\", 1., 2.) };", &.{.bad_metadata});
+    try f(&schema, "param float p = 1. { mod(\"music.bas\") };", &.{.bad_metadata});
+    try f(&schema, "uniform float u { mod(\"music.bass\") };", &.{.bad_metadata});
     try f(&schema, "param float p = 1. { hide(1) };", &.{.bad_metadata});
     try f(&schema, "param float p = 1. { tag };", &.{.bad_metadata});
     // the hint names the near key

@@ -37,7 +37,7 @@ pub const Schema = struct {
     };
     pub const Arg = struct {
         kind: ArgKind,
-        /// for a word: the words it may be (empty: any)
+        /// for a word or a string: the values it may be (empty: any)
         words: []const []const u8 = &.{},
         /// may be left out, with every argument after it
         optional: bool = false,
@@ -85,7 +85,7 @@ pub const Schema = struct {
                 if (a.rest and j + 1 != k.args.len) return "only a key's last argument may be `rest`";
                 if (optional and !a.optional) return "an argument after an optional one must be optional";
                 optional = optional or a.optional;
-                if (a.words.len > 0 and a.kind != .word) return "`words` is for an argument of kind `word`";
+                if (a.words.len > 0 and a.kind == .number) return "`words` is for an argument of kind `word` or `string`";
             }
             if (k.on.len == 0) return "a key with an empty `on` can go nowhere";
         }
@@ -235,16 +235,16 @@ const Ctx = struct {
                     if (!c.reported(ex.tok)) try c.report(ex.tok, "argument {d} of `{s}` must be a number known now", .{ i + 1, me.key });
                     ok = false;
                 },
-                .word => if (a.words.len > 0) {
-                    const w = c.text(ex.tok);
+                .word, .string => if (a.words.len > 0) {
+                    const t = c.text(ex.tok);
+                    const w = if (a.kind == .string) t[1 .. t.len - 1] else t;
                     for (a.words) |allowed| {
                         if (std.mem.eql(u8, allowed, w)) break;
                     } else {
-                        try c.report(ex.tok, "`{s}` is not one of the words `{s}` takes ({s})", .{ w, me.key, try c.wordList(a.words) });
+                        try c.report(ex.tok, "`{s}` is not one of the values `{s}` takes ({s})", .{ w, me.key, try c.wordList(a.words) });
                         ok = false;
                     }
                 },
-                .string => {},
             }
         }
         return ok;

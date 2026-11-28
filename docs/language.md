@@ -93,7 +93,7 @@ BULG knows the core keys and checks them (sema: metadata):
   --meta-schema FILE`, `addShaderTree(.{ .meta_schema })`). With one, a key that neither
   BULG nor the schema has is an error, E0231, with the nearest known key as a hint; and
   the schema's keys have their arguments checked like the core's (E0230). A schema names
-  each key, its arguments (`number`, `string`, or `word`, with the words allowed),
+  each key, its arguments (`number`, `string` or `word`; for the last two, optionally the values allowed),
   which may be left out (`optional`) or repeated (`rest`, the last), and the
   declarations it may be on. It cannot redefine a core key. The format is ZON:
 
