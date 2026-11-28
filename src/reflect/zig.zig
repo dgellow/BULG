@@ -236,7 +236,7 @@ const Gen = struct {
         }
         try g.put("        },\n        .params = &.{\n");
         for (r.params) |prm| {
-            try g.print("            .{{ .name = \"{s}\", .type = .{s}, .default = &.{{", .{ prm.name, glslType(g.s, prm.type) });
+            try g.print("            .{{ .name = \"{s}\", .module = \"{s}\", .type = .{s}, .default = &.{{", .{ prm.name, prm.module, glslType(g.s, prm.type) });
             for (prm.default, 0..) |c, i| {
                 try g.put(if (i == 0) " " else ", ");
                 try g.number(c);
@@ -350,7 +350,8 @@ const prelude =
     \\pub const Meta = struct { key: []const u8, args: []const Arg };
     \\
     \\pub const Uniform = struct { name: []const u8, type: Type, len: u32, meta: []const Meta };
-    \\pub const Param = struct { name: []const u8, type: Type, default: []const f64, meta: []const Meta };
+    \\/// A param: `module` declares it (its source is `module ++ ".bulg"` under the root).
+    \\pub const Param = struct { name: []const u8, module: []const u8, type: Type, default: []const f64, meta: []const Meta };
     \\pub const Spec = struct { name: []const u8, type: Type, value: f64, default: f64, meta: []const Meta };
     \\pub const Input = struct { name: []const u8, type: Type, location: ?u32 };
     \\

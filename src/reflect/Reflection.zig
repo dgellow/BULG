@@ -69,6 +69,8 @@ pub const Sampler = struct {
 
 pub const Param = struct {
     name: []const u8,
+    /// the module that declares it: programs that share it share its default
+    module: []const u8,
     type: Type,
     default: []const Ir.Const,
     meta: []const Meta,
@@ -255,7 +257,7 @@ const Builder = struct {
                     p.stages = merge(p.stages, stage);
                     return;
                 };
-                try b.params.append(b.a, .{ .name = g.name, .type = g.type, .default = (try b.value(ref.module, g.init)) orelse &.{}, .meta = try b.metas(ref.module, g.meta), .stages = stage });
+                try b.params.append(b.a, .{ .name = g.name, .module = b.s.modules[ref.module].name, .type = g.type, .default = (try b.value(ref.module, g.init)) orelse &.{}, .meta = try b.metas(ref.module, g.meta), .stages = stage });
             },
             .in => try (if (stage.vertex) &b.vert_ins else &b.frag_ins).append(b.a, attr),
             .out => try (if (stage.vertex) &b.vert_outs else &b.frag_outs).append(b.a, attr),

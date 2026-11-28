@@ -19,6 +19,9 @@ pub const ShaderTreeOptions = struct {
     root: std.Build.LazyPath,
     /// the dialects whose texts the module has
     dialects: []const Dialect = &.{ .es300, .glsl330 },
+    /// the host's metadata keys, as ZON (`bulg.MetaSchema`): with it, a key neither BULG
+    /// nor the schema has is a build error
+    meta_schema: ?std.Build.LazyPath = null,
 };
 
 /// A shader tree as a Zig module: every program's texts and reflection (see
@@ -36,6 +39,10 @@ pub fn addShaderTree(b: *std.Build, bulg_dep: *std.Build.Dependency, options: Sh
     run.addArgs(&.{ "gen", "--root" });
     run.addDirectoryArg(options.root);
     for (options.dialects) |d| run.addArgs(&.{ "--dialect", @tagName(d) });
+    if (options.meta_schema) |ms| {
+        run.addArg("--meta-schema");
+        run.addFileArg(ms);
+    }
     run.addArg("--out");
     const out = run.addOutputFileArg("shaders.zig");
     run.has_side_effects = true;

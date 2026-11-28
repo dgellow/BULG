@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
     const shaders = @import("bulg").addShaderTree(b, bulg_dep, .{
         .root = b.path("shaders"),
         .dialects = &.{.es300},
+        .meta_schema = b.path("meta.zon"),
     });
     const mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),

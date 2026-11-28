@@ -11,7 +11,11 @@ test "the programs, their texts and their reflection" {
     try std.testing.expectEqual(0, shaders.rings.samplers.uNoise);
     try std.testing.expectEqual(@as(usize, 2), rings.params.len);
     try std.testing.expectEqualStrings("speed", rings.params[0].name);
+    try std.testing.expectEqualStrings("rings", rings.params[0].module);
     try std.testing.expectEqual(@as(f64, 4), rings.params[0].meta[0].args[1].number);
+    // the host's own key (meta.zon), passed through as it is
+    try std.testing.expectEqualStrings("ease", rings.params[0].meta[2].key);
+    try std.testing.expectEqualStrings("smooth", rings.params[0].meta[2].args[0].word);
     try std.testing.expectEqual(@as(f64, 16), shaders.programs.get(.rings_fine).specs[0].value);
     // the specialised text has the variant's constant
     try std.testing.expect(std.mem.indexOf(u8, shaders.rings_fine.fragment.get(.es300), "const int RINGS = 16;") != null);

@@ -62,9 +62,48 @@ specification. Each rule names the test that holds it: `parser:` tests are in
 - Module-level initialisers are constant expressions (sema: constants and array sizes).
 - Metadata `{ key, key(args) }` is for `param`, `spec` and `uniform`. Its arguments are
   constants, strings, or bare words that nothing declares (`curve(exp)`). BULG keeps the
-  keys and passes them to the host (sema: metadata).
+  keys and passes them to the host (sema: metadata; below).
 - A uniform block's members are laid out by std140; reflection gives each member's
   offset (sema: aliases, imports, uniform blocks).
+
+## Metadata
+
+```glsl
+param float zoom = 1.6 { range(.5, 4.), step(.05), label("Zoom"), group("Camera"), unit("x") };
+param vec3 tint = vec3(.2, .4, .9) { color, range(0., 1.) };
+spec int STEPS = 96 { range(16, 128), tiers(48, 72, 96) };
+param float drift = .3 { range(0., 1.), mod("music.bass", .5), curve(exp) };
+```
+
+BULG knows the core keys and checks them (sema: metadata):
+
+| Key | Arguments | Is for | Means |
+| -- | -- | -- | -- |
+| `range(lo, hi)` | two numbers, `lo < hi` | numbers and their vectors | the values a tool offers; the default (each component) and the tiers lie in it |
+| `step(s)` | a number above 0 | numbers and their vectors | the smallest change a tool makes |
+| `label("…")` | a string | any | the name a tool shows |
+| `group("…")` | a string | any | the heading a tool shows it under |
+| `unit("…")` | a string | any | written after the value |
+| `color` | none | `vec3`, `vec4` | a colour: a tool shows a swatch |
+| `tiers(a, b, …)` | numbers, rising | `spec` constants | the values a host picks between by quality, lowest first |
+
+- A key is given once on a declaration, unless a schema lets it repeat.
+- Every other key is the host's. Without a schema BULG passes it on unchecked.
+- A host may give a schema of its own keys (`Session.Options.meta_schema`, `bulg
+  --meta-schema FILE`, `addShaderTree(.{ .meta_schema })`). With one, a key that neither
+  BULG nor the schema has is an error, E0231, with the nearest known key as a hint; and
+  the schema's keys have their arguments checked like the core's (E0230). A schema names
+  each key, its arguments (`number`, `string`, or `word`, with the words allowed),
+  which may be left out (`optional`) or repeated (`rest`, the last), and the
+  declarations it may be on. It cannot redefine a core key. The format is ZON:
+
+```zig
+.{ .keys = .{
+    .{ .name = "mod", .on = .{.param}, .doc = "follows a signal of the host",
+       .args = .{ .{ .kind = .string }, .{ .kind = .number, .optional = true } } },
+    .{ .name = "curve", .args = .{ .{ .kind = .word, .words = .{ "lin", "exp" } } } },
+} }
+```
 
 ## Functions
 

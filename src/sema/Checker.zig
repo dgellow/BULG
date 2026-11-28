@@ -539,7 +539,7 @@ fn resolveGlobal(c: *Checker, mi: u32, k: u32) Error!void {
                     try c.report(mi, m.node(@fromBackingInt(@intCast(arg))).tok, .not_constant, "metadata arguments are constants or strings", .{});
                 try args.append(c.a, @backingInt(e));
             }
-            try meta.append(c.a, .{ .key = m.text(md.key), .args = try c.extraList(mi, args.items) });
+            try meta.append(c.a, .{ .key = m.text(md.key), .tok = md.key, .args = try c.extraList(mi, args.items) });
         }
     }
 

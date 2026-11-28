@@ -28,7 +28,7 @@ each program `p` it has:
   code that fills it by name;
 - `shaders.p.info`, and `shaders.programs.get(.p)` for code that picks a program at run
   time. It lists the blocks, samplers in slot order, loose uniforms, params (with
-  defaults and metadata), spec constants (the variant's value, the default, and
+  defaults, metadata and the module that declares each: `set-default` writes there), spec constants (the variant's value, the default, and
   metadata), vertex inputs, and the files the program was made from.
 - with `msl` among the dialects, `shaders.p.metal.vertex` and `.fragment`: what a Metal
   host binds. That is each block's buffer index, the `bulg_Params` fields' offsets and
@@ -43,6 +43,10 @@ Shared by every program:
 - The std140 shapes: a `vec3` is `[3]f32` and the padding after it is explicit. A
   `matN` is `[N][4]f32` (columns). An array of scalars or `vec2`/`vec3` is `[N][4]T`, its
   elements rounded up to 16 bytes.
+
+`addShaderTree(b, dep, .{ .root, .dialects, .meta_schema })`: with `.meta_schema` (a
+ZON file of the host's metadata keys, docs/language.md, Metadata), a key neither BULG
+nor the schema has fails the build.
 
 The tree is read again at every build. It takes milliseconds, and it means a new file is
 never missed. The module is recompiled only when its text changes. A tree with errors
@@ -81,11 +85,21 @@ if (s.programChecked(p)) {
 
 ```
 bulg parse FILE...                  diagnostics, and how many files parse
-bulg check FILE...                  the files as one session: how many modules check
-                                     and programs link
+bulg check [--meta-schema F] FILE...   the files as one session: how many modules
+                                     check and programs link
 bulg emit --dialect D --out DIR FILE...   DIR/NAME.vert and DIR/NAME.frag (es300, glsl330),
                                      DIR/NAME.vert.metal and .frag.metal (msl)
-bulg gen --root DIR --out FILE.zig  what addShaderTree runs
+bulg gen --root DIR --out FILE.zig  what addShaderTree runs (with --meta-schema F
+                                     when it is given one)
+bulg set-default --root DIR MODULE NAME VALUE...
+bulg set-default --root DIR --from FILE
+                                     write a param's default into its source: the
+                                     initialiser is replaced, nothing else is touched
+                                     (comments, spacing, other declarations). FILE has
+                                     lines `MODULE NAME VALUE...`. The tree is checked
+                                     with the new values first (a default outside its
+                                     range is an error), and on an error nothing is
+                                     written
 bulg reflect FILE...                reflection as JSON (bulg.reflection/1, see
                                      src/reflect/json.zig)
 bulg print [--shape] FILE           the syntax tree as canonical text

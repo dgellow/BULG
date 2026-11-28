@@ -25,11 +25,16 @@ pub const Session = @import("Session.zig");
 pub const Ir = @import("ir/Ir.zig");
 pub const types = @import("sema/types.zig");
 pub const builtins = @import("sema/builtins.zig");
+/// Metadata keys: the core's, and the `Schema` a host gives for its own.
+pub const meta = @import("sema/meta.zig");
+pub const MetaSchema = meta.Schema;
 /// The emitters: GLSL ES 3.00, GLSL 3.30 and MSL.
 pub const emit = @import("emit/emit.zig");
 pub const reflect = @import("reflect/Reflection.zig");
 pub const zig_gen = @import("reflect/zig.zig");
 pub const reflection_json = @import("reflect/json.zig");
+/// Edits of source text: `setDefault` writes a tuned param's value back.
+pub const edit = @import("edit.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -42,6 +47,7 @@ test {
     _ = @import("sema/types.zig");
     _ = @import("sema/builtins.zig");
     _ = @import("sema/Checker.zig");
+    _ = @import("sema/meta.zig");
     _ = @import("sema/tests.zig");
     _ = @import("ir/eval.zig");
     _ = @import("emit/emit.zig");
@@ -52,4 +58,5 @@ test {
     _ = @import("reflect/tests.zig");
     _ = @import("reflect/zig.zig");
     _ = @import("reflect/json.zig");
+    _ = @import("edit.zig");
 }
